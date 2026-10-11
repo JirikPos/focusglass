@@ -68,16 +68,22 @@ NSColor.white.setStroke()
 progress.stroke()
 ctx.restoreGState()
 
-// Oko uprostřed (SF Symbol)
-let config = NSImage.SymbolConfiguration(pointSize: 230, weight: .light)
-    .applying(.init(paletteColors: [.white]))
-if let eye = NSImage(systemSymbolName: "eye.fill", accessibilityDescription: nil)?.withSymbolConfiguration(config) {
-    let s = eye.size
-    ctx.saveGState()
-    ctx.setShadow(offset: CGSize(width: 0, height: -6), blur: 18, color: NSColor.black.withAlphaComponent(0.3).cgColor)
-    eye.draw(in: CGRect(x: center.x - s.width / 2, y: center.y - s.height / 2, width: s.width, height: s.height))
-    ctx.restoreGState()
-}
+// Laptop uprostřed: obrys displeje + základna, kreslené čarami.
+ctx.saveGState()
+ctx.setShadow(offset: .zero, blur: 22, color: NSColor.white.withAlphaComponent(0.35).cgColor)
+NSColor.white.setStroke()
+NSColor.white.setFill()
+
+let screenSize = CGSize(width: 300, height: 196)
+let screenRect = CGRect(x: center.x - screenSize.width / 2, y: center.y - 70,
+                        width: screenSize.width, height: screenSize.height)
+let screen = NSBezierPath(roundedRect: screenRect, xRadius: 20, yRadius: 20)
+screen.lineWidth = 14
+screen.stroke()
+
+let baseRect = CGRect(x: center.x - 200, y: screenRect.minY - 34, width: 400, height: 18)
+NSBezierPath(roundedRect: baseRect, xRadius: 9, yRadius: 9).fill()
+ctx.restoreGState()
 
 NSGraphicsContext.current = nil
 try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: output))

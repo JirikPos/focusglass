@@ -25,7 +25,8 @@ struct ContentView: View {
 
     private var header: some View {
         HStack(spacing: 7) {
-            Image(systemName: "eye.circle")
+            Image(systemName: "laptopcomputer")
+                .symbolRenderingMode(.monochrome)
                 .font(.system(size: 14, weight: .regular))
             Text(showSettings ? "Nastavení" : "FocusGlass")
                 .font(.system(size: 13, weight: .semibold))
@@ -54,7 +55,7 @@ private struct TimerPanel: View {
             ZStack {
                 ProgressRing(progress: timer.progress)
                 VStack(spacing: 6) {
-                    Text(statusTitle.uppercased())
+                    Text(timer.statusTitle.uppercased())
                         .font(.system(size: 10, weight: .semibold))
                         .tracking(2.2)
                         .foregroundStyle(.white.opacity(0.45))
@@ -102,12 +103,6 @@ private struct TimerPanel: View {
         }
     }
 
-    private var statusTitle: String {
-        let timer = model.timer
-        if timer.isAway { return "Mimo počítač" }
-        if timer.hasStarted && !timer.isRunning { return "Pozastaveno" }
-        return timer.phase.title
-    }
 }
 
 private struct ProfilePicker: View {
@@ -160,7 +155,7 @@ private struct EyeCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Péče o oči")
                     .font(.system(size: 12, weight: .semibold))
-                Text(status)
+                Text(model.timer.eyeStatus)
                     .font(.system(size: 11))
                     .foregroundStyle(.white.opacity(0.45))
             }
@@ -171,15 +166,6 @@ private struct EyeCard: View {
         }
         .padding(10)
         .glassPanel(radius: 18)
-    }
-
-    private var status: String {
-        let timer = model.timer
-        if timer.isAway { return "Pokračuje, až se vrátíš" }
-        guard model.settings.eyeCareEnabled else { return "Připomínky vypnuté" }
-        if timer.phase == .rest { return "Oči odpočívají s tebou" }
-        guard let left = timer.timeUntilEyeBreak else { return "Do pauzy už žádná" }
-        return "Další za \(Int((left / 60).rounded(.up))) min"
     }
 }
 

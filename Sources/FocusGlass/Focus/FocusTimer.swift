@@ -218,6 +218,31 @@ final class FocusTimer {
     }
 }
 
+// MARK: - Popisky stavu (sdílí okno z lišty i notch)
+
+extension FocusTimer {
+    var statusTitle: String {
+        if isAway { return "Mimo počítač" }
+        if hasStarted && !isRunning { return "Pozastaveno" }
+        return phase.title
+    }
+
+    var eyeStatus: String {
+        if isAway { return "Pokračuje, až se vrátíš" }
+        guard settings.eyeCareEnabled else { return "Připomínky vypnuté" }
+        if phase == .rest { return "Oči odpočívají s tebou" }
+        guard let left = timeUntilEyeBreak else { return "Do pauzy už žádná" }
+        return "Další pauza pro oči za \(Int((left / 60).rounded(.up))) min"
+    }
+
+    /// Symbol aktuálního stavu (lišta, notch).
+    var stateSymbol: String {
+        if isAway { return "figure.walk" }
+        if hasStarted && !isRunning { return "pause.circle" }
+        return phase == .work ? "laptopcomputer" : "cup.and.saucer"
+    }
+}
+
 extension TimeInterval {
     /// Formát `m:ss` (zaokrouhleno nahoru, aby 0:00 znamenalo opravdu konec).
     var clock: String {

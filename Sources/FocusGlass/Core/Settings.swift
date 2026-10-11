@@ -35,6 +35,7 @@ final class AppSettings {
         static let timeInMenuBar = "showTimeInMenuBar"
         static let awayDetection = "awayDetection"
         static let awayMinutes = "awayMinutes"
+        static let notch = "notchEnabled"
     }
 
     @ObservationIgnored private let defaults = UserDefaults.standard
@@ -46,6 +47,7 @@ final class AppSettings {
     var showTimeInMenuBar: Bool { didSet { defaults.set(showTimeInMenuBar, forKey: Key.timeInMenuBar) } }
     var awayDetection: Bool { didSet { defaults.set(awayDetection, forKey: Key.awayDetection) } }
     var awayMinutes: Int { didSet { defaults.set(awayMinutes, forKey: Key.awayMinutes) } }
+    var notchEnabled: Bool { didSet { defaults.set(notchEnabled, forKey: Key.notch) } }
 
     init() {
         defaults.register(defaults: [
@@ -56,6 +58,7 @@ final class AppSettings {
             Key.timeInMenuBar: true,
             Key.awayDetection: true,
             Key.awayMinutes: 2,
+            Key.notch: true,
         ])
         profileID = defaults.string(forKey: Key.profile) ?? FocusProfile.default.id
         eyeCareEnabled = defaults.bool(forKey: Key.eyeCare)
@@ -64,5 +67,6 @@ final class AppSettings {
         showTimeInMenuBar = defaults.bool(forKey: Key.timeInMenuBar)
         awayDetection = defaults.bool(forKey: Key.awayDetection)
         awayMinutes = defaults.integer(forKey: Key.awayMinutes)
+        notchEnabled = defaults.bool(forKey: Key.notch)
     }
 }
