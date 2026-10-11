@@ -8,6 +8,7 @@ enum NotchTab: CaseIterable, Identifiable {
     case focus
     case media
     case shelf
+    case clipboard
 
     var id: Self { self }
 
@@ -16,6 +17,7 @@ enum NotchTab: CaseIterable, Identifiable {
         case .focus: "laptopcomputer"
         case .media: "music.note"
         case .shelf: "tray"
+        case .clipboard: "doc.on.clipboard"
         }
     }
 
@@ -24,6 +26,16 @@ enum NotchTab: CaseIterable, Identifiable {
         case .focus: "Focus"
         case .media: "Hudba"
         case .shelf: "Odkladiště"
+        case .clipboard: "Schránka"
+        }
+    }
+
+    /// Panel lze v nastavení vypnout.
+    @MainActor
+    func isAvailable(_ settings: AppSettings) -> Bool {
+        switch self {
+        case .clipboard: settings.clipboardEnabled
+        default: true
         }
     }
 
@@ -33,6 +45,7 @@ enum NotchTab: CaseIterable, Identifiable {
         case .focus: FocusNotchView()
         case .media: MediaNotchView()
         case .shelf: ShelfNotchView()
+        case .clipboard: ClipboardNotchView()
         }
     }
 }
@@ -96,6 +109,26 @@ struct NotchView: View {
                         insertion: .opacity.animation(.easeOut(duration: 0.2).delay(0.12)),
                         removal: .opacity.animation(.easeOut(duration: 0.1))
                     ))
+            case .prompt:
+                if let prompt = notch.prompt {
+                    PromptNotch(prompt: prompt)
+                        .id(notch.promptID)
+                        .frame(width: notch.size(for: .prompt).width, height: notch.size(for: .prompt).height)
+                        .transition(.revealFromNotch)
+                }
+            case .intent:
+                if let request = notch.intent {
+                    IntentNotch(request: request)
+                        .id(notch.intentID)
+                        .frame(width: notch.size(for: .intent).width, height: notch.size(for: .intent).height)
+                        .transition(.revealFromNotch)
+                }
+            case .alert:
+                if let alert = notch.alert {
+                    AlertNotch(alert: alert)
+                        .frame(width: notch.size(for: .alert).width, height: notch.size(for: .alert).height)
+                        .transition(.revealFromNotch)
+                }
             case .idle:
                 EmptyView()
             }
@@ -136,28 +169,142 @@ private struct CompactNotch: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Image(systemName: content.symbol)
-                .symbolRenderingMode(.monochrome)
-                .font(.system(size: 11, weight: .medium))
-                .frame(width: content.wing)
+            HStack(spacing: 4) {
+                Image(systemName: content.symbol)
+                    .symbolRenderingMode(.monochrome)
+                if let text = content.leadingText {
+                    Text(text).monospacedDigit()
+                }
+            }
+            .frame(width: content.wing)
             Spacer(minLength: notch.notchSize.width)
-            trailing
+            Text(model.timer.remaining.clock)
+                .monospacedDigit()
                 .frame(width: content.wing)
         }
+        .font(.system(size: 11, weight: .medium))
         .frame(height: notch.notchSize.height)
     }
+}
 
-    @ViewBuilder
-    private var trailing: some View {
-        switch content.trailing {
-        case .time:
-            Text(model.timer.remaining.clock)
-                .font(.system(size: 11, weight: .medium))
-                .monospacedDigit()
-        case .symbol(let name):
-            Image(systemName: name)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.7))
+// MARK: - Otázka s tlačítky
+
+private struct PromptNotch: View {
+    let prompt: NotchState.Prompt
+    @Environment(NotchState.self) private var notch
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Color.clear.frame(height: notch.notchSize.height)
+            HStack(spacing: 12) {
+                Image(systemName: prompt.symbol)
+                    .symbolRenderingMode(.monochrome)
+                    .font(.system(size: 14))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(prompt.title)
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .lineLimit(1)
+                    Text(prompt.detail)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white.opacity(0.5))
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Button(prompt.secondaryTitle) { notch.resolvePrompt(primary: false) }
+                    .buttonStyle(GlassPillButtonStyle(size: 11))
+                Button(prompt.primaryTitle) { notch.resolvePrompt(primary: true) }
+                    .buttonStyle(PrimaryPillButtonStyle())
+            }
+            .padding(.horizontal, 26)
+            .frame(maxHeight: .infinity)
+        }
+    }
+}
+
+// MARK: - Otázka na důvod
+
+private struct IntentNotch: View {
+    let request: NotchState.IntentRequest
+    @Environment(NotchState.self) private var notch
+    @State private var reason = ""
+    @FocusState private var focused: Bool
+
+    private var trimmed: String { reason.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var missing: Int { max(0, NotchState.minimumReasonLength - trimmed.count) }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Color.clear.frame(height: notch.notchSize.height)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "hand.raised.fill")
+                        .font(.system(size: 12))
+                    Text("\(request.source) je během focusu zablokovaný")
+                        .font(.system(size: 12, weight: .semibold))
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    Keycap(text: "esc")
+                }
+                HStack(spacing: 8) {
+                    TextField("Proč tam chceš jít?", text: $reason)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.white.opacity(0.07)))
+                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(.white.opacity(focused ? 0.2 : 0.08), lineWidth: 0.75))
+                        .focused($focused)
+                        .onSubmit(submit)
+                    Button("Pustit na \(request.minutes) min", action: submit)
+                        .buttonStyle(GlassPillButtonStyle(size: 11))
+                        .disabled(missing > 0)
+                        .opacity(missing > 0 ? 0.4 : 1)
+                }
+                Text(missing > 0 ? "Napiš konkrétní důvod – ještě \(missing) znaků." : "Enter = pustit. Důvod se zapíše do deníku výjimek.")
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+            .padding(.horizontal, 26)
+            .padding(.top, 4)
+            .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { focused = true }
+        }
+    }
+
+    private func submit() {
+        guard missing == 0 else { return }
+        notch.resolveIntent(reason: trimmed)
+    }
+}
+
+// MARK: - Upozornění
+
+private struct AlertNotch: View {
+    let alert: NotchState.Alert
+    @Environment(NotchState.self) private var notch
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Color.clear.frame(height: notch.notchSize.height)
+            HStack(spacing: 12) {
+                Image(systemName: "hand.raised.fill")
+                    .font(.system(size: 15))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(alert.title)
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .lineLimit(1)
+                    Text(alert.detail)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white.opacity(0.5))
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 26)
+            .frame(maxHeight: .infinity)
         }
     }
 }
@@ -172,7 +319,7 @@ private struct ExpandedNotch: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 HStack(spacing: 1) {
-                    ForEach(NotchTab.allCases) { tab in
+                    ForEach(NotchTab.allCases.filter { $0.isAvailable(model.settings) }) { tab in
                         TabButton(tab: tab, selected: notch.tab == tab) { notch.tab = tab }
                     }
                 }

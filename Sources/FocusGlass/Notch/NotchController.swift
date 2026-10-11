@@ -24,7 +24,9 @@ private final class NotchPanel: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
     }
 
-    override var canBecomeKey: Bool { false }
+    /// Klávesnici bere jen otevřený notch (Esc, mezerník pro náhled).
+    var allowsKey = false
+    override var canBecomeKey: Bool { allowsKey }
     override var canBecomeMain: Bool { false }
 }
 
@@ -95,6 +97,27 @@ final class NotchController {
         state?.expand()
     }
 
+    func toggle() { state?.toggle() }
+    func open(tab: NotchTab) { state?.open(tab: tab) }
+    func showAlert(title: String, detail: String) {
+        state?.showAlert(NotchState.Alert(title: title, detail: detail))
+    }
+
+    /// Vrací `false`, pokud notch neběží.
+    @discardableResult
+    func showPrompt(_ prompt: NotchState.Prompt) -> Bool {
+        guard let state else { return false }
+        state.showPrompt(prompt)
+        return true
+    }
+
+    /// Vrací `false`, pokud notch neběží (pak se zeptat nejde).
+    func askIntent(_ request: NotchState.IntentRequest) -> Bool {
+        guard let state else { return false }
+        state.askIntent(request)
+        return true
+    }
+
     private func rebuild() {
         guard panel != nil else { return }
         hide()
@@ -115,6 +138,9 @@ final class NotchController {
         host.autoresizingMask = [.width, .height]
         state.prepareWindow = { [weak self] size in
             self?.growImmediately(to: size)
+        }
+        state.onModeChange = { [weak self] mode in
+            self?.modeChanged(mode)
         }
         host.onMouse = { [weak state] in
             MainActor.assumeIsolated { state?.mouseChanged() }
@@ -139,12 +165,68 @@ final class NotchController {
     }
 
     private func hide() {
+        removeKeyMonitor()
         shrinkWork?.cancel()
         panel?.orderOut(nil)
         panel?.contentView = nil
         panel = nil
         state = nil
         generation += 1
+    }
+
+    // MARK: - Klávesnice
+
+    private var keyMonitor: Any?
+
+    /// Otevřený notch převezme klávesnici (Esc zavře, mezerník = rychlý náhled souboru).
+    /// Po zavření ji vrátí aplikaci, ve které jsi pracoval.
+    private func modeChanged(_ mode: NotchState.Mode) {
+        guard let panel else { return }
+        if mode == .expanded || mode == .intent {
+            panel.allowsKey = true
+            panel.makeKey()
+            installKeyMonitor()
+        } else if panel.allowsKey {
+            panel.allowsKey = false
+            removeKeyMonitor()
+            if panel.isKeyWindow {
+                panel.orderOut(nil)
+                panel.orderFrontRegardless()
+                NotchSpace.shared.add(panel)
+            }
+        }
+    }
+
+    private func installKeyMonitor() {
+        guard keyMonitor == nil else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            let keyCode = Int(event.keyCode)
+            let handled = MainActor.assumeIsolated { () -> Bool in
+                guard let self, let state = self.state else { return false }
+                if state.mode == .intent {
+                    guard keyCode == 53 else { return false } // jinak píšeš do pole
+                    state.resolveIntent(reason: nil)
+                    return true
+                }
+                guard state.isExpanded else { return false }
+                switch keyCode {
+                case 53: // Esc
+                    state.collapseNow()
+                    return true
+                case 49 where state.tab == .shelf: // mezerník
+                    self.model.shelf.quickLook()
+                    return true
+                default:
+                    return false
+                }
+            }
+            return handled ? nil : event
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+        keyMonitor = nil
     }
 
     /// Sleduje potřebnou velikost okna bez jakéhokoli dotazování.

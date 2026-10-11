@@ -82,6 +82,19 @@ struct GlassPillButtonStyle: ButtonStyle {
     }
 }
 
+/// Hlavní akce v kapsli: bílá, černý text.
+struct PrimaryPillButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.black)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5.5)
+            .background(Capsule().fill(.white.opacity(configuration.isPressed ? 0.75 : 0.95)))
+            .contentShape(Capsule())
+    }
+}
+
 // MARK: - Indikátory
 
 struct ProgressRing: View {

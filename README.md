@@ -43,16 +43,45 @@ Aplikace nemá ikonu v Docku. To je záměr.
 - **Detekce odchodu:** když se 1, 2 nebo 5 minut (nastavitelné) nedotkneš myši ani klávesnice, časovač se zastaví
   a čas strávený mimo počítač se do práce nezapočítá. Po návratu se sám rozběhne
   a další připomínka pro oči přijde až za 20 minut. Detekce nepotřebuje žádná oprávnění.
-- **Notch:** černý „ostrůvek“ přesně přes výřez kamery (na Macu bez výřezu malá kapsle nahoře uprostřed).
-  - *Sbalený:* když běží časovač, ukazuje vedle výřezu stav a čas; když hraje hudba, notu a vlnu.
-  - *Rozbalený* (najetím myší): panely **Focus** (časovač, ovládání, pauza pro oči), **Hudba**
-    (Apple Music / Spotify: skladba, interpret, předchozí / play / další) a **Odkladiště**.
-  - *Odkladiště:* přetáhni soubory na notch, zůstanou tam (i po restartu) a odtud je přetáhneš kamkoli.
-    Dvojklik soubor otevře, pravé tlačítko nabídne *Zobrazit ve Finderu* nebo *Odebrat*.
-  - Ovládání hudby si při prvním použití vyžádá svolení (Nastavení systému → Soukromí → Automatizace).
-  - Vypnout jde v nastavení přepínačem *Notch*.
+- **Notch:** černý výřez kamery s jemným obrysem (na Macu bez výřezu malá kapsle nahoře uprostřed).
+  - *Klid:* jen výřez, nic nepřekrývá lištu (ani u aplikací na celou obrazovku).
+  - *Najetí myší:* po stranách ikona a čas focusu; když do 30 min začíná schůzka, vlevo minuty do ní.
+  - *Kliknutí* (nebo **⌃⌥ mezerník**): panely **Focus**, **Hudba**, **Odkladiště**, **Schránka**. Esc zavře.
+  - *Hudba:* Apple Music / Spotify, ovládání a animovaný vizualizér (syntetický – skutečná analýza
+    zvuku by vyžadovala oprávnění k nahrávání obrazovky).
+  - *Odkladiště:* přetáhni soubory na notch, odtud je vytáhneš kamkoli (kopie). Mezerník = rychlý náhled,
+    pravé tlačítko = otevřít / AirDrop / Finder / odebrat. Volitelně se soubor po vytažení sám odebere.
+  - *Schránka:* posledních 10 zkopírovaných textů (jen v paměti, hesla ze správců hesel se ignorují).
+    Kliknutí zkopíruje zpět. **⌃⌥ V** otevře rovnou schránku.
+- **Hlídač rozptýlení:** během focusu sleduje aplikace (Discord, Telegram…) a weby (YouTube, Instagram…)
+  v Safari, Chrome, Arc, Brave a Edge. Když tam odskočíš, notch tě tvrdě upozorní a ztracený čas se
+  započítá do statistik. Seznamy upravíš v nastavení.
+- **Nabídka focusu:** když 3 minuty aktivně pracuješ v pracovní aplikaci (VS Code, Cursor, Xcode,
+  ClickUp, Figma, Notion – upravitelné) a focus neběží, notch se zeptá, jestli ho spustit.
+- **Statistiky:** čistý čas práce dnes, denní cíl, série dní se splněným cílem, graf týdne, ztracený čas
+  a tvrdé hodnocení dne. V okně z lišty i v panelu Focus.
+- **Klávesové zkratky:** ⌃⌥ mezerník notch · ⌃⌥ ↩ start/pauza · ⌃⌥ V schránka.
+- **Nerušit během focusu:** v aplikaci Zkratky vytvoř dvě zkratky s akcí *Nastavit režim soustředění*:
+  „FocusGlass On“ (Nerušit zapnout) a „FocusGlass Off“ (vypnout). FocusGlass je spouští sám.
+- **Schůzky:** po zapnutí v nastavení se zeptá na přístup ke Kalendáři.
 - **Spustit po přihlášení** přes `SMAppService.mainApp`.
 - Při uspání Macu, vypnutí displeje nebo přepnutí uživatele se časovač pozastaví.
+
+## Šedý iPhone během focusu
+
+Mac iPhone přímo ovládat nesmí, ale jde to řetězem přes režimy soustředění:
+
+1. **Mac → Nastavení systému → Soustředění:** vytvoř režim „Deep Work“ (nebo použij Nerušit)
+   a zapni **Sdílet mezi zařízeními**.
+2. **Mac → Zkratky:** zkratky „FocusGlass On“ / „FocusGlass Off“ s akcí *Nastavit režim soustředění*
+   → Deep Work zapnout / vypnout. Ve FocusGlass zapni *Nerušit během focusu*.
+3. **iPhone → Nastavení → Zpřístupnění → Displej a velikost textu → Barevné filtry:** filtr nastav
+   na *Odstíny šedé* (samotný přepínač nech vypnutý).
+4. **iPhone → Zkratky → Automatizace → Nová:** *Soustředění* → Deep Work → *Při zapnutí* →
+   *Spustit okamžitě* → akce **Nastavit barevné filtry: Zapnout**. Druhá automatizace
+   *Při vypnutí* → **Vypnout**.
+
+Start focusu na Macu → Deep Work se zapne i na iPhonu → iPhone zešedne. Konec focusu → barvy zpět.
 
 ## Sestavení (doporučeno)
 
@@ -88,13 +117,17 @@ jako bundle, takže se v Docku objeví ikona a *Spustit po přihlášení* nefun
 ```
 Sources/FocusGlass/
 ├── App/           vstupní bod, AppModel (propojuje všechny funkce)
-├── Core/          nastavení, citáty, spouštění po přihlášení
+├── Core/          nastavení, citáty, spouštění po přihlášení, klávesové zkratky
 ├── DesignSystem/  sklo, tlačítka, prstenec, linka, prázdné stavy
 ├── MenuBar/       okno z lišty a nastavení
-├── Focus/         časovač, cvičení očí, tmavé overlaye, panel Focus pro notch
+├── Focus/         časovač, cvičení očí, tmavé overlaye, Nerušit, panel Focus pro notch
 ├── Notch/         okno notche, tvar, hover, registr panelů (NotchTab)
-├── Media/         Apple Music / Spotify + panel Hudba
-└── Shelf/         odkladiště souborů + panel Odkladiště
+├── Media/         Apple Music / Spotify + panel Hudba s vizualizérem
+├── Shelf/         odkladiště souborů, rychlý náhled, AirDrop + panel Odkladiště
+├── Clipboard/     historie schránky + panel Schránka
+├── Calendar/      nejbližší schůzka (EventKit)
+├── Guard/         hlídač rozptýlení
+└── Stats/         denní statistiky, série, hodnocení
 ```
 
 **Jak přidat novou funkci do notche:**
@@ -117,3 +150,12 @@ Sources/FocusGlass/
   (SwiftUI si nechá vykreslovací cache), 0 % CPU v klidu. Během minutového cvičení animace
   ve 30 fps zabere ~14 % jednoho jádra.
   RSS v `ps` ukazuje víc, protože započítává sdílené systémové frameworky.
+
+## Autor a licence
+
+**Autor:** Jiří Posavád · [LinkedIn](https://linkedin.com/jiří-posavád)
+
+Licence: jen **osobní, nekomerční použití**, viz [LICENSE](LICENSE). Bez písemného svolení autora je zakázáno:
+- aplikaci nebo její části prodávat, přeprodávat a jakkoli komerčně využívat,
+- ji šířit, ať v původní, nebo upravené podobě,
+- odstranit jméno a profil autora z aplikace, kódu nebo dokumentace.

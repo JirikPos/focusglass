@@ -8,7 +8,10 @@ struct ContentView: View {
         VStack(spacing: 18) {
             header
             if showSettings {
-                SettingsView()
+                ScrollView(showsIndicators: false) {
+                    SettingsView()
+                }
+                .frame(height: 540)
                     .transition(.opacity.combined(with: .offset(x: 16)))
             } else {
                 TimerPanel()
@@ -49,7 +52,7 @@ private struct TimerPanel: View {
 
     var body: some View {
         let timer = model.timer
-        VStack(spacing: 22) {
+        VStack(spacing: 18) {
             ProfilePicker()
 
             ZStack {
@@ -67,7 +70,7 @@ private struct TimerPanel: View {
                         .foregroundStyle(.white.opacity(0.3))
                 }
             }
-            .frame(width: 206, height: 206)
+            .frame(width: 180, height: 180)
             .animation(.linear(duration: 0.9), value: timer.progress)
 
             HStack(spacing: 28) {
@@ -93,13 +96,20 @@ private struct TimerPanel: View {
             }
 
             EyeCard()
+            StatsCard()
             QuoteView()
 
-            Button("Ukončit FocusGlass") { NSApp.terminate(nil) }
-                .buttonStyle(.plain)
-                .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.3))
-                .keyboardShortcut("q")
+            HStack {
+                Button("by \(Author.name)", action: Author.openProfile)
+                    .buttonStyle(.plain)
+                    .help("Profil autora")
+                Spacer()
+                Button("Ukončit FocusGlass") { NSApp.terminate(nil) }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut("q")
+            }
+            .font(.system(size: 11))
+            .foregroundStyle(.white.opacity(0.3))
         }
     }
 

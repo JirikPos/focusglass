@@ -35,6 +35,11 @@ final class FocusTimer {
 
     @ObservationIgnored var onEyeBreak: (() -> Void)?
     @ObservationIgnored var onPhaseChange: ((_ ended: Phase, _ manual: Bool) -> Void)?
+    /// Kolik sekund čisté práce přibylo (záporné = odečíst čas, kdy byl uživatel pryč).
+    @ObservationIgnored var onFocusDelta: ((TimeInterval) -> Void)?
+    /// Změna běhu (start, pauza, fáze, nepřítomnost).
+    @ObservationIgnored var onStateChange: (() -> Void)?
+    @ObservationIgnored private var lastWorkRemaining: TimeInterval?
     @ObservationIgnored private var ticker: Timer?
     @ObservationIgnored private var awayPoll: Timer?
 
@@ -44,6 +49,7 @@ final class FocusTimer {
         self.profile = profile
         self.remaining = profile.work
         observeSleep()
+        restore()
     }
 
     var duration: TimeInterval { phase == .work ? profile.work : profile.rest }
@@ -70,7 +76,9 @@ final class FocusTimer {
         if remaining <= 0 { remaining = duration }
         endDate = Date().addingTimeInterval(remaining)
         isRunning = true
+        lastWorkRemaining = phase == .work ? remaining : nil
         startTicker()
+        stateChanged()
     }
 
     func pause() {
@@ -86,6 +94,7 @@ final class FocusTimer {
         phase = .work
         remaining = profile.work
         nextEyeBreak = Self.eyeInterval
+        stateChanged()
     }
 
     func skip() {
@@ -110,6 +119,12 @@ final class FocusTimer {
         remaining = max(0, endDate.timeIntervalSinceNow)
 
         if phase == .work {
+            if let last = lastWorkRemaining {
+                let delta = last - remaining
+                if delta > 0 && delta < 10 { onFocusDelta?(delta) }
+            }
+            lastWorkRemaining = remaining
+
             if detectAway() { return }
 
             if settings.eyeCareEnabled && elapsed >= nextEyeBreak {
@@ -140,6 +155,7 @@ final class FocusTimer {
             start()
         }
         onPhaseChange?(ended, manual)
+        stateChanged()
     }
 
     private func startTicker() {
@@ -152,6 +168,8 @@ final class FocusTimer {
         ticker = nil
         isRunning = false
         endDate = nil
+        lastWorkRemaining = nil
+        stateChanged()
     }
 
     // MARK: - Nepřítomnost
@@ -167,10 +185,13 @@ final class FocusTimer {
         guard idle >= TimeInterval(settings.awayMinutes * 60) else { return false }
 
         // Čas strávený mimo počítač se do práce nepočítá.
+        let before = remaining
         remaining = min(duration, remaining + idle)
+        onFocusDelta?(-(remaining - before))
         haltTicker()
         isAway = true
         awayPoll = Self.repeating(every: 1) { [weak self] in self?.checkReturn() }
+        stateChanged()
         return true
     }
 
@@ -185,6 +206,51 @@ final class FocusTimer {
         awayPoll?.invalidate()
         awayPoll = nil
         isAway = false
+    }
+
+    // MARK: - Uložení stavu (přežije restart i reinstalaci)
+
+    private static let stateKey = "timerState"
+
+    private func stateChanged() {
+        persist()
+        onStateChange?()
+    }
+
+    private func persist() {
+        var state: [String: Any] = [
+            "profile": profile.id,
+            "phase": phase == .work ? "work" : "rest",
+            "remaining": remaining,
+            "nextEyeBreak": nextEyeBreak,
+        ]
+        // Běžící blok si pamatuje cílový čas; „pryč od počítače“ se obnoví jako pauza.
+        if let endDate, isRunning { state["endDate"] = endDate.timeIntervalSince1970 }
+        UserDefaults.standard.set(state, forKey: Self.stateKey)
+    }
+
+    private func restore() {
+        guard let state = UserDefaults.standard.dictionary(forKey: Self.stateKey),
+              state["profile"] as? String == profile.id,
+              let savedRemaining = state["remaining"] as? TimeInterval else { return }
+        phase = state["phase"] as? String == "rest" ? .rest : .work
+        nextEyeBreak = state["nextEyeBreak"] as? TimeInterval ?? Self.eyeInterval
+
+        if let end = state["endDate"] as? TimeInterval {
+            let left = Date(timeIntervalSince1970: end).timeIntervalSinceNow
+            guard left > 1 else {
+                // Blok mezitím doběhl (aplikace neběžela) – začni čistě.
+                phase = .work
+                remaining = profile.work
+                nextEyeBreak = Self.eyeInterval
+                return
+            }
+            remaining = min(left, duration)
+            // Spustit až po napojení callbacků v AppModel.
+            DispatchQueue.main.async { [weak self] in self?.start() }
+        } else {
+            remaining = min(max(0, savedRemaining), duration)
+        }
     }
 
     // MARK: - Pomocné

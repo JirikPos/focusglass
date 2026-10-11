@@ -21,7 +21,11 @@ struct FocusNotchView: View {
                 Text(timer.remaining.clock)
                     .font(.system(size: 24, weight: .ultraLight))
                     .monospacedDigit()
-                Text(timer.eyeStatus)
+                Text("Dnes \(model.stats.today.focus.hoursMinutes) · série \(model.stats.streak) d")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .lineLimit(1)
+                Text(secondaryLine)
                     .font(.system(size: 9))
                     .foregroundStyle(.white.opacity(0.4))
                     .lineLimit(1)
@@ -46,5 +50,13 @@ struct FocusNotchView: View {
                     .help("Přeskočit")
             }
         }
+    }
+
+    /// Schůzka má přednost před připomínkou očí.
+    private var secondaryLine: String {
+        if let minutes = model.calendar.minutesUntilNext, let meeting = model.calendar.next {
+            return "Za \(minutes) min: \(meeting.title)"
+        }
+        return model.timer.eyeStatus
     }
 }

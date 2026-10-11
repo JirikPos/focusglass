@@ -69,9 +69,6 @@ final class NowPlaying {
         // Okamžitá odezva v UI; skutečný stav dorazí notifikací.
         if command == "playpause" { isPlaying.toggle() }
         let source = "tell application \"\(player.rawValue)\" to \(command)"
-        DispatchQueue.main.async {
-            var error: NSDictionary?
-            NSAppleScript(source: source)?.executeAndReturnError(&error)
-        }
+        AppleScriptRunner.run(source)
     }
 }

@@ -23,9 +23,14 @@ struct ShelfNotchView: View {
                         ForEach(shelf.items) { ShelfTile(item: $0) }
                     }
                 }
-                Button(action: shelf.clear) { Image(systemName: "trash") }
-                    .buttonStyle(GlassIconButtonStyle(size: 24))
-                    .help("Vyprázdnit odkladiště")
+                VStack(spacing: 6) {
+                    Button { shelf.quickLook() } label: { Image(systemName: "eye") }
+                        .buttonStyle(GlassIconButtonStyle(size: 24))
+                        .help("Rychlý náhled (mezerník)")
+                    Button(action: shelf.clear) { Image(systemName: "trash") }
+                        .buttonStyle(GlassIconButtonStyle(size: 24))
+                        .help("Vyprázdnit odkladiště")
+                }
             }
         }
     }
@@ -37,8 +42,10 @@ private struct ShelfTile: View {
     @State private var hovering = false
 
     var body: some View {
+        let shelf = model.shelf
+        let icon = shelf.icon(for: item)
         VStack(spacing: 3) {
-            Image(nsImage: model.shelf.icon(for: item))
+            Image(nsImage: icon)
                 .resizable()
                 .interpolation(.high)
                 .frame(width: 30, height: 30)
@@ -54,9 +61,24 @@ private struct ShelfTile: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(.white.opacity(hovering ? 0.08 : 0))
         )
+        .overlay {
+            ShelfDragSource(
+                url: item.url,
+                icon: icon,
+                onHover: { inside in
+                    hovering = inside
+                    shelf.hovered = inside ? item : (shelf.hovered == item ? nil : shelf.hovered)
+                },
+                onOpen: { shelf.open(item) },
+                onDragCompleted: {
+                    if model.settings.shelfRemoveAfterDrag { shelf.remove(item) }
+                },
+                menu: { menu(shelf) }
+            )
+        }
         .overlay(alignment: .topTrailing) {
             if hovering {
-                Button { model.shelf.remove(item) } label: {
+                Button { shelf.remove(item) } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 6, weight: .bold))
                         .frame(width: 13, height: 13)
@@ -65,15 +87,17 @@ private struct ShelfTile: View {
                 .buttonStyle(.plain)
             }
         }
-        .onHover { hovering = $0 }
-        .onDrag { NSItemProvider(contentsOf: item.url) ?? NSItemProvider() }
-        .onTapGesture(count: 2) { model.shelf.open(item) }
-        .contextMenu {
-            Button("Otevřít") { model.shelf.open(item) }
-            Button("Zobrazit ve Finderu") { NSWorkspace.shared.activateFileViewerSelecting([item.url]) }
-            Divider()
-            Button("Odebrat z odkladiště") { model.shelf.remove(item) }
-        }
         .help(item.url.path)
+    }
+
+    private func menu(_ shelf: ShelfStore) -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(ClosureMenuItem("Otevřít", symbol: "arrow.up.forward.app") { shelf.open(item) })
+        menu.addItem(ClosureMenuItem("Rychlý náhled", symbol: "eye") { shelf.quickLook(item) })
+        menu.addItem(ClosureMenuItem("AirDrop", symbol: "airplayaudio") { shelf.airDrop(item) })
+        menu.addItem(ClosureMenuItem("Zobrazit ve Finderu", symbol: "folder") { shelf.revealInFinder(item) })
+        menu.addItem(.separator())
+        menu.addItem(ClosureMenuItem("Odebrat z odkladiště", symbol: "xmark") { shelf.remove(item) })
+        return menu
     }
 }

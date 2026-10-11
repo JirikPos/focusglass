@@ -56,8 +56,26 @@ final class ShelfStore {
         save()
     }
 
+    /// Soubor, nad kterým je myš (pro náhled mezerníkem).
+    @ObservationIgnored var hovered: ShelfItem?
+
     func open(_ item: ShelfItem) {
         NSWorkspace.shared.open(item.url)
+    }
+
+    func revealInFinder(_ item: ShelfItem) {
+        NSWorkspace.shared.activateFileViewerSelecting([item.url])
+    }
+
+    func quickLook(_ item: ShelfItem? = nil) {
+        let selected = item ?? hovered ?? items.first
+        guard let selected else { return }
+        QuickLook.shared.show(selected.url)
+    }
+
+    func airDrop(_ item: ShelfItem) {
+        NSApp.activate(ignoringOtherApps: true)
+        NSSharingService(named: .sendViaAirDrop)?.perform(withItems: [item.url])
     }
 
     func icon(for item: ShelfItem) -> NSImage {

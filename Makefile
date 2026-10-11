@@ -3,7 +3,7 @@ APP      := build/$(APP_NAME).app
 INSTALLED := /Applications/$(APP_NAME).app
 
 .DEFAULT_GOAL := help
-.PHONY: help build app install run stop restart dev clean uninstall icon preview notch
+.PHONY: help build app install run stop restart dev clean uninstall icon preview notch cert
 
 help: ## Zobrazí tuto nápovědu
 	@grep -E '^[a-z]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  \033[36mmake %-10s\033[0m %s\n", $$1, $$2}'
@@ -45,3 +45,6 @@ preview: app ## Spustí lokální build rovnou s cvičením očí
 notch: app ## Spustí lokální build s rozbaleným notchem
 	-pkill -x $(APP_NAME)
 	open "$(APP)" --args --notch-open
+
+cert: ## Vytvoří podpisový certifikát, aby si macOS pamatoval oprávnění
+	./scripts/make-cert.sh

@@ -36,6 +36,20 @@ final class AppSettings {
         static let awayDetection = "awayDetection"
         static let awayMinutes = "awayMinutes"
         static let notch = "notchEnabled"
+        static let distractionGuard = "distractionGuard"
+        static let distractingApps = "distractingApps"
+        static let distractingSites = "distractingSites"
+        static let blockedApps = "blockedApps"
+        static let blockedSites = "blockedSites"
+        static let askReason = "askReasonOnBlock"
+        static let suggestFocus = "suggestFocus"
+        static let workApps = "workApps"
+        static let allowMinutes = "allowMinutes"
+        static let dailyGoal = "dailyGoalHours"
+        static let autoDND = "autoDoNotDisturb"
+        static let calendar = "calendarEnabled"
+        static let clipboard = "clipboardEnabled"
+        static let shelfRemoveAfterDrag = "shelfRemoveAfterDrag"
     }
 
     @ObservationIgnored private let defaults = UserDefaults.standard
@@ -48,6 +62,27 @@ final class AppSettings {
     var awayDetection: Bool { didSet { defaults.set(awayDetection, forKey: Key.awayDetection) } }
     var awayMinutes: Int { didSet { defaults.set(awayMinutes, forKey: Key.awayMinutes) } }
     var notchEnabled: Bool { didSet { defaults.set(notchEnabled, forKey: Key.notch) } }
+    var distractionGuard: Bool { didSet { defaults.set(distractionGuard, forKey: Key.distractionGuard) } }
+    /// Názvy aplikací oddělené čárkou.
+    var distractingApps: String { didSet { defaults.set(distractingApps, forKey: Key.distractingApps) } }
+    /// Domény oddělené čárkou (jen upozornit).
+    var distractingSites: String { didSet { defaults.set(distractingSites, forKey: Key.distractingSites) } }
+    /// Aplikace, které se během focusu schovají.
+    var blockedApps: String { didSet { defaults.set(blockedApps, forKey: Key.blockedApps) } }
+    /// Weby (doména, volitelně s cestou, např. `youtube.com/shorts`), které se během focusu zablokují.
+    var blockedSites: String { didSet { defaults.set(blockedSites, forKey: Key.blockedSites) } }
+    /// Při blokaci se zeptat na důvod a po jeho napsání na chvíli pustit.
+    var askReason: Bool { didSet { defaults.set(askReason, forKey: Key.askReason) } }
+    var allowMinutes: Int { didSet { defaults.set(allowMinutes, forKey: Key.allowMinutes) } }
+    /// Nabídnout spuštění focusu, když pracuješ v pracovní aplikaci a focus neběží.
+    var suggestFocus: Bool { didSet { defaults.set(suggestFocus, forKey: Key.suggestFocus) } }
+    var workApps: String { didSet { defaults.set(workApps, forKey: Key.workApps) } }
+    static let allowOptions = [5, 10, 15]
+    var dailyGoalHours: Int { didSet { defaults.set(dailyGoalHours, forKey: Key.dailyGoal) } }
+    var autoDND: Bool { didSet { defaults.set(autoDND, forKey: Key.autoDND) } }
+    var calendarEnabled: Bool { didSet { defaults.set(calendarEnabled, forKey: Key.calendar) } }
+    var clipboardEnabled: Bool { didSet { defaults.set(clipboardEnabled, forKey: Key.clipboard) } }
+    var shelfRemoveAfterDrag: Bool { didSet { defaults.set(shelfRemoveAfterDrag, forKey: Key.shelfRemoveAfterDrag) } }
 
     init() {
         defaults.register(defaults: [
@@ -59,6 +94,20 @@ final class AppSettings {
             Key.awayDetection: true,
             Key.awayMinutes: 2,
             Key.notch: true,
+            Key.distractionGuard: true,
+            Key.distractingApps: "Discord, Telegram, Messenger, WhatsApp",
+            Key.distractingSites: "youtube.com",
+            Key.blockedApps: "Instagram, TikTok, Steam",
+            Key.blockedSites: "instagram.com, tiktok.com, facebook.com, x.com, twitter.com, reddit.com, netflix.com, youtube.com/shorts",
+            Key.askReason: true,
+            Key.allowMinutes: 10,
+            Key.suggestFocus: true,
+            Key.workApps: "Code, Cursor, Xcode, ClickUp, Figma, Notion",
+            Key.dailyGoal: 4,
+            Key.autoDND: false,
+            Key.calendar: false,
+            Key.clipboard: true,
+            Key.shelfRemoveAfterDrag: false,
         ])
         profileID = defaults.string(forKey: Key.profile) ?? FocusProfile.default.id
         eyeCareEnabled = defaults.bool(forKey: Key.eyeCare)
@@ -68,5 +117,24 @@ final class AppSettings {
         awayDetection = defaults.bool(forKey: Key.awayDetection)
         awayMinutes = defaults.integer(forKey: Key.awayMinutes)
         notchEnabled = defaults.bool(forKey: Key.notch)
+        distractionGuard = defaults.bool(forKey: Key.distractionGuard)
+        distractingApps = defaults.string(forKey: Key.distractingApps) ?? ""
+        // Dřívější výchozí seznam (vše jen upozornit) → sociální sítě teď patří do blokovaných.
+        let legacySites = "youtube.com, instagram.com, facebook.com, x.com, twitter.com, tiktok.com, reddit.com, netflix.com"
+        if defaults.string(forKey: Key.distractingSites) == legacySites {
+            defaults.set("youtube.com", forKey: Key.distractingSites)
+        }
+        distractingSites = defaults.string(forKey: Key.distractingSites) ?? ""
+        blockedApps = defaults.string(forKey: Key.blockedApps) ?? ""
+        blockedSites = defaults.string(forKey: Key.blockedSites) ?? ""
+        askReason = defaults.bool(forKey: Key.askReason)
+        allowMinutes = defaults.integer(forKey: Key.allowMinutes)
+        suggestFocus = defaults.bool(forKey: Key.suggestFocus)
+        workApps = defaults.string(forKey: Key.workApps) ?? ""
+        dailyGoalHours = max(1, defaults.integer(forKey: Key.dailyGoal))
+        autoDND = defaults.bool(forKey: Key.autoDND)
+        calendarEnabled = defaults.bool(forKey: Key.calendar)
+        clipboardEnabled = defaults.bool(forKey: Key.clipboard)
+        shelfRemoveAfterDrag = defaults.bool(forKey: Key.shelfRemoveAfterDrag)
     }
 }
