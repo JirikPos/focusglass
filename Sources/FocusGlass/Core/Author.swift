@@ -3,8 +3,8 @@ import AppKit
 /// Autor aplikace. Podle licence (LICENSE) se tyto údaje nesmí z aplikace odstranit.
 enum Author {
     static let name = "Jiří Posavád"
-    /// Profil autora. Pozor: LinkedIn profily mají tvar `https://www.linkedin.com/in/<slug>`.
-    static let profile = "https://linkedin.com/jiří-posavád"
+    /// Profil autora (LinkedIn).
+    static let profile = "https://www.linkedin.com/in/jiří-posavád/"
     static let license = "Osobní nekomerční licence · © 2026"
 
     static var version: String {

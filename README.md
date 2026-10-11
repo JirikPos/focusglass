@@ -153,7 +153,7 @@ Sources/FocusGlass/
 
 ## Autor a licence
 
-**Autor:** Jiří Posavád · [LinkedIn](https://linkedin.com/jiří-posavád)
+**Autor:** Jiří Posavád · [LinkedIn](https://www.linkedin.com/in/jiří-posavád/)
 
 Licence: jen **osobní, nekomerční použití**, viz [LICENSE](LICENSE). Bez písemného svolení autora je zakázáno:
 - aplikaci nebo její části prodávat, přeprodávat a jakkoli komerčně využívat,
