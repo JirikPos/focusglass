@@ -58,6 +58,7 @@ final class OverlayController {
         quote: Quote,
         until end: Date,
         onSkip: (() -> Void)? = nil,
+        review: NotchState.TaskReviewRequest? = nil,
         onFinish: ((_ finished: Bool) -> Void)? = nil
     ) {
         dismiss(animated: false)
@@ -76,6 +77,7 @@ final class OverlayController {
                 end: end,
                 isPrimary: isPrimary,
                 onSkip: onSkip,
+                review: review,
                 onClose: { [weak self] in self?.dismiss() }
             )
             let panel = OverlayPanel(frame: screen.frame)
@@ -154,6 +156,7 @@ private struct OverlayView: View {
     let end: Date
     let isPrimary: Bool
     let onSkip: (() -> Void)?
+    var review: NotchState.TaskReviewRequest?
     let onClose: () -> Void
 
     @State private var appeared = false
@@ -166,7 +169,8 @@ private struct OverlayView: View {
                 if isPrimary {
                     switch mode {
                     case .eyes: EyesContent(quote: quote, start: start, end: end, onClose: onClose)
-                    case .rest: RestContent(quote: quote, start: start, end: end, onSkip: onSkip, onClose: onClose)
+                    case .rest: RestContent(quote: quote, start: start, end: end, onSkip: onSkip,
+                                            review: review, onClose: onClose)
                     }
                 } else {
                     Text(mode.headline)
@@ -286,7 +290,10 @@ private struct RestContent: View {
     let start: Date
     let end: Date
     let onSkip: (() -> Void)?
+    var review: NotchState.TaskReviewRequest?
     let onClose: () -> Void
+
+    @State private var reviewSaved = false
 
     var body: some View {
         TimelineView(.periodic(from: start, by: 1)) { context in
@@ -311,7 +318,15 @@ private struct RestContent: View {
 
                 Spacer(minLength: 0)
 
-                QuoteFooter(quote: quote)
+                if let review, !reviewSaved {
+                    TaskReviewView(items: review.items) { answers in
+                        review.save(answers)
+                        reviewSaved = true
+                    }
+                    .padding(.bottom, 8)
+                } else {
+                    QuoteFooter(quote: quote)
+                }
 
                 VStack(spacing: 18) {
                     CountdownLine(fraction: left / total)

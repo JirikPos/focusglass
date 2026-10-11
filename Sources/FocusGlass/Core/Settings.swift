@@ -47,6 +47,9 @@ final class AppSettings {
         static let eveningReview = "eveningReview"
         static let reviewHour = "eveningReviewHour"
         static let forceReview = "forceEveningReview"
+        static let askTasks = "askTasksBeforeBlock"
+        static let clickUpTeam = "clickUpTeamID"
+        static let clickUpUser = "clickUpUserID"
         static let workApps = "workApps"
         static let allowMinutes = "allowMinutes"
         static let dailyGoal = "dailyGoalHours"
@@ -87,6 +90,11 @@ final class AppSettings {
     var reviewHour: Int { didSet { defaults.set(reviewHour, forKey: Key.reviewHour) } }
     /// Večerní review přes celou obrazovku, nejde zavřít bez vyplnění.
     var forceReview: Bool { didSet { defaults.set(forceReview, forKey: Key.forceReview) } }
+    /// Na začátku bloku se zeptat, na jakých úkolech budeš pracovat.
+    var askTasks: Bool { didSet { defaults.set(askTasks, forKey: Key.askTasks) } }
+    /// ClickUp workspace (team) a uživatel. Token je v Klíčence.
+    var clickUpTeamID: String { didSet { defaults.set(clickUpTeamID, forKey: Key.clickUpTeam) } }
+    var clickUpUserID: Int { didSet { defaults.set(clickUpUserID, forKey: Key.clickUpUser) } }
     static let allowOptions = [5, 10, 15]
     var dailyGoalHours: Int { didSet { defaults.set(dailyGoalHours, forKey: Key.dailyGoal) } }
     var autoDND: Bool { didSet { defaults.set(autoDND, forKey: Key.autoDND) } }
@@ -116,6 +124,9 @@ final class AppSettings {
             Key.eveningReview: true,
             Key.reviewHour: 18,
             Key.forceReview: false,
+            Key.askTasks: true,
+            Key.clickUpTeam: "",
+            Key.clickUpUser: 0,
             Key.dailyGoal: 4,
             Key.autoDND: false,
             Key.calendar: false,
@@ -148,6 +159,9 @@ final class AppSettings {
         eveningReview = defaults.bool(forKey: Key.eveningReview)
         reviewHour = defaults.integer(forKey: Key.reviewHour)
         forceReview = defaults.bool(forKey: Key.forceReview)
+        askTasks = defaults.bool(forKey: Key.askTasks)
+        clickUpTeamID = defaults.string(forKey: Key.clickUpTeam) ?? ""
+        clickUpUserID = defaults.integer(forKey: Key.clickUpUser)
         dailyGoalHours = max(1, defaults.integer(forKey: Key.dailyGoal))
         autoDND = defaults.bool(forKey: Key.autoDND)
         calendarEnabled = defaults.bool(forKey: Key.calendar)

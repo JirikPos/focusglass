@@ -25,10 +25,14 @@ struct FocusNotchView: View {
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.white.opacity(0.6))
                     .lineLimit(1)
-                Text(secondaryLine)
-                    .font(.system(size: 9))
-                    .foregroundStyle(.white.opacity(0.4))
-                    .lineLimit(1)
+                if model.session.isActive && !model.session.items.isEmpty {
+                    TaskMenu()
+                } else {
+                    Text(secondaryLine)
+                        .font(.system(size: 9))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .lineLimit(1)
+                }
             }
 
             Spacer(minLength: 0)
@@ -58,5 +62,39 @@ struct FocusNotchView: View {
             return "Za \(minutes) min: \(meeting.title)"
         }
         return model.timer.eyeStatus
+    }
+}
+
+/// Aktivní úkol bloku – kliknutím přepneš, na který úkol jde čas, nebo přidáš další.
+private struct TaskMenu: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let session = model.session
+        Menu {
+            ForEach(session.items) { item in
+                Button {
+                    session.activate(item.id)
+                } label: {
+                    if item.id == session.activeID {
+                        Label("\(item.name) · \(item.seconds.hoursMinutes)", systemImage: "play.fill")
+                    } else {
+                        Text("\(item.closedInClickUp ? "✓ " : "")\(item.name) · \(item.seconds.hoursMinutes)")
+                    }
+                }
+                .disabled(item.closedInClickUp)
+            }
+            Divider()
+            Button("Přidat úkol…", action: model.addTasksToSession)
+        } label: {
+            Text(session.activeItem.map { "▶ \($0.name) · \($0.seconds.hoursMinutes)" } ?? "Vyber úkol…")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(.white.opacity(0.75))
+                .lineLimit(1)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Na který úkol jde teď čas")
     }
 }

@@ -121,6 +121,32 @@ struct NotchView: View {
                         .frame(width: notch.size(for: .prompt).width, height: notch.size(for: .prompt).height)
                         .transition(.revealFromNotch)
                 }
+            case .tasks:
+                if let request = notch.taskPicker {
+                    VStack(spacing: 0) {
+                        Color.clear.frame(height: notch.notchSize.height)
+                        TaskPickerView(excluded: request.excluded) { notch.resolveTaskPicker($0) }
+                            .padding(.horizontal, 26)
+                            .padding(.top, 4)
+                            .padding(.bottom, 12)
+                    }
+                    .id(notch.tasksID)
+                    .frame(width: notch.size(for: .tasks).width, height: notch.size(for: .tasks).height)
+                    .transition(.revealFromNotch)
+                }
+            case .review:
+                if let request = notch.taskReview {
+                    VStack(spacing: 0) {
+                        Color.clear.frame(height: notch.notchSize.height)
+                        TaskReviewView(items: request.items, compact: true) { notch.resolveTaskReview($0) }
+                            .padding(.horizontal, 26)
+                            .padding(.top, 4)
+                            .padding(.bottom, 12)
+                    }
+                    .id(notch.tasksID)
+                    .frame(width: notch.size(for: .review).width, height: notch.size(for: .review).height)
+                    .transition(.revealFromNotch)
+                }
             case .intent:
                 if let request = notch.intent {
                     IntentNotch(request: request)

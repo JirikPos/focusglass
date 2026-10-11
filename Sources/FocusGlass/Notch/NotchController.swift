@@ -103,6 +103,20 @@ final class NotchController {
         state?.showAlert(NotchState.Alert(title: title, detail: detail))
     }
 
+    @discardableResult
+    func showTaskPicker(_ request: NotchState.TaskPickerRequest) -> Bool {
+        guard let state else { return false }
+        state.showTaskPicker(request)
+        return true
+    }
+
+    @discardableResult
+    func showTaskReview(_ request: NotchState.TaskReviewRequest) -> Bool {
+        guard let state else { return false }
+        state.showTaskReview(request)
+        return true
+    }
+
     /// Vrací `false`, pokud notch neběží.
     @discardableResult
     func showPrompt(_ prompt: NotchState.Prompt) -> Bool {
@@ -182,7 +196,7 @@ final class NotchController {
     /// Po zavření ji vrátí aplikaci, ve které jsi pracoval.
     private func modeChanged(_ mode: NotchState.Mode) {
         guard let panel else { return }
-        if mode == .expanded || mode == .intent {
+        if mode.takesKeyboard {
             panel.allowsKey = true
             panel.makeKey()
             installKeyMonitor()
@@ -203,9 +217,14 @@ final class NotchController {
             let keyCode = Int(event.keyCode)
             let handled = MainActor.assumeIsolated { () -> Bool in
                 guard let self, let state = self.state else { return false }
-                if state.mode == .intent {
+                if state.mode.isSticky {
                     guard keyCode == 53 else { return false } // jinak píšeš do pole
-                    state.resolveIntent(reason: nil)
+                    switch state.mode {
+                    case .intent: state.resolveIntent(reason: nil)
+                    case .tasks: state.resolveTaskPicker(nil)
+                    case .review: state.resolveTaskReview([:])
+                    default: break
+                    }
                     return true
                 }
                 guard state.isExpanded else { return false }

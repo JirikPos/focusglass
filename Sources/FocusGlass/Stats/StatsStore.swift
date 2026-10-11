@@ -8,6 +8,9 @@ struct DayStats: Codable, Equatable {
     var lost: TimeInterval = 0
     /// Dokončené pracovní bloky.
     var blocks = 0
+    /// Úkoly naplánované / splněné v blocích (volitelné kvůli starším uloženým datům).
+    var tasksPlanned: Int?
+    var tasksDone: Int?
 }
 
 /// Denní statistiky, série a tvrdé hodnocení dne. Uloženo v UserDefaults.
@@ -51,6 +54,14 @@ final class StatsStore {
 
     func addLost(_ seconds: TimeInterval) {
         update { $0.lost += seconds }
+        save()
+    }
+
+    func addTasks(planned: Int, done: Int) {
+        update {
+            $0.tasksPlanned = ($0.tasksPlanned ?? 0) + planned
+            $0.tasksDone = ($0.tasksDone ?? 0) + done
+        }
         save()
     }
 

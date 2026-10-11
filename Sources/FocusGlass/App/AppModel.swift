@@ -17,6 +17,9 @@ final class AppModel {
     let clipboard = ClipboardHistory()
     @ObservationIgnored let spectrum = AudioSpectrum()
     let habits: HabitsService
+    let clickUp: ClickUpService
+    let session = WorkSession()
+    @ObservationIgnored private var taskPoll: Timer?
     @ObservationIgnored private var reviewTimer: Timer?
     @ObservationIgnored private let forcedReview = ForcedReviewController()
     private(set) var quote = Quotes.random()
@@ -39,12 +42,16 @@ final class AppModel {
         self.distractionGuard = DistractionGuard(settings: settings)
         self.suggester = FocusSuggester(settings: settings)
         self.habits = HabitsService(settings: settings)
+        self.clickUp = ClickUpService(settings: settings)
 
         timer.onEyeBreak = { [weak self] in self?.startEyeBreak() }
         timer.onPhaseChange = { [weak self] ended, manual in
             self?.phaseChanged(ended: ended, manual: manual)
         }
-        timer.onFocusDelta = { [weak self] seconds in self?.stats.addFocus(seconds) }
+        timer.onFocusDelta = { [weak self] seconds in
+            self?.stats.addFocus(seconds)
+            self?.session.add(seconds)
+        }
         timer.onStateChange = { [weak self] in self?.focusStateChanged() }
 
         distractionGuard.isFocusActive = { [weak self] in
@@ -165,7 +172,12 @@ final class AppModel {
 
     private func phaseChanged(ended: Phase, manual: Bool) {
         overlay.dismiss()
-        guard !manual else { return }
+        let review = ended == .work ? finishSession(ask: true) : nil
+        guard !manual else {
+            // Ručně přeskočený blok: vyhodnocení úkolů v notchi.
+            if let review { notch.showTaskReview(review) }
+            return
+        }
         playSound("Glass")
         if ended == .work { stats.addBlock() }
 
@@ -174,16 +186,157 @@ final class AppModel {
                 mode: .rest,
                 quote: Quotes.random(),
                 until: end,
-                onSkip: { [weak self] in self?.timer.skip() }
+                onSkip: { [weak self] in self?.timer.skip() },
+                review: review,
+                // Pauzu zavřeš bez vyhodnocení → zapíše se aspoň čas.
+                onFinish: { _ in review?.save([:]) }
             )
+        } else if let review {
+            notch.showTaskReview(review)
         }
     }
+
+    // MARK: - Úkoly v bloku (ClickUp + vlastní)
+
+    /// Nový pracovní blok → „Na čem budeš pracovat?“
+    private func beginSession() {
+        focusLog.debug("begin session, clickUp=\(self.clickUp.isConfigured)")
+        session.begin()
+        Task {
+            if clickUp.isConfigured { await clickUp.refreshTasks() }
+            let shown = notch.showTaskPicker(NotchState.TaskPickerRequest(
+                excluded: [],
+                choose: { [weak self] items in
+                    self?.session.choose(items)
+                    self?.startTaskPoll()
+                },
+                skip: { [weak self] in self?.session.skipChoice() }
+            ))
+            focusLog.debug("task picker shown=\(shown)")
+            if !shown { session.skipChoice() }
+        }
+    }
+
+    /// Přidat úkoly uprostřed bloku (z panelu Focus).
+    func addTasksToSession() {
+        guard session.isActive else { return }
+        notch.showTaskPicker(NotchState.TaskPickerRequest(
+            excluded: Set(session.items.map(\.id)),
+            choose: { [weak self] items in
+                self?.session.append(items)
+                self?.startTaskPoll()
+            },
+            skip: {}
+        ))
+    }
+
+    /// Ukončí blok. `ask` = vrátí žádost o vyhodnocení, jinak rovnou zapíše čas.
+    private func finishSession(ask: Bool) -> NotchState.TaskReviewRequest? {
+        stopTaskPoll()
+        guard session.isActive else { return nil }
+        let items = session.end()
+        guard !items.isEmpty else { return nil }
+
+        let once = SaveOnce()
+        let request = NotchState.TaskReviewRequest(items: items) { [weak self] answers in
+            guard !once.done else { return }
+            once.done = true
+            self?.saveSession(items, answers: answers)
+        }
+        if !ask { request.save([:]) }
+        return ask ? request : nil
+    }
+
+    /// Statistiky + ClickUp: čistý čas jako záznam času, „Ano“ → úkol uzavřít.
+    private func saveSession(_ items: [WorkSession.Item], answers: [String: Bool]) {
+        let done = items.filter { answers[$0.id] == true || $0.closedInClickUp }.count
+        stats.addTasks(planned: items.count, done: done)
+
+        guard clickUp.isConfigured, let client = clickUp.client else { return }
+        let team = settings.clickUpTeamID
+        Task {
+            var failures = 0
+            for item in items {
+                guard let task = item.clickUp else { continue }
+                do {
+                    if item.seconds >= 60 {
+                        let start = item.firstStart ?? Date().addingTimeInterval(-item.seconds)
+                        try await client.addTime(team: team, task: task.id, start: start, seconds: item.seconds)
+                    }
+                    if answers[item.id] == true, !item.closedInClickUp,
+                       let status = try await client.closedStatus(list: task.listID) {
+                        try await client.setStatus(task: task.id, status: status)
+                    }
+                } catch {
+                    failures += 1
+                }
+            }
+            if failures > 0 {
+                notch.showAlert(title: "ClickUp: \(failures)× zápis selhal",
+                                detail: "Zkontroluj připojení v nastavení")
+            }
+            await clickUp.refreshTasks()
+        }
+    }
+
+    /// Během bloku se každé 2 minuty podívá, jestli jsi některý úkol neuzavřel přímo v ClickUpu.
+    private func startTaskPoll() {
+        stopTaskPoll()
+        guard session.hasClickUpItems, clickUp.isConfigured else { return }
+        let timer = Timer(timeInterval: 120, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkClosedTasks() }
+        }
+        timer.tolerance = 20
+        RunLoop.main.add(timer, forMode: .common)
+        taskPoll = timer
+    }
+
+    private func stopTaskPoll() {
+        taskPoll?.invalidate()
+        taskPoll = nil
+    }
+
+    private func checkClosedTasks() {
+        guard session.isActive, let client = clickUp.client else { return stopTaskPoll() }
+        let open = session.items.filter { $0.clickUp != nil && !$0.closedInClickUp }
+        guard !open.isEmpty else { return stopTaskPoll() }
+        Task {
+            for item in open {
+                guard let task = try? await client.task(item.id), task.isClosed else { continue }
+                let next = session.markClosed(item.id)
+                if let next {
+                    notch.showAlert(title: "„\(item.name)“ je v ClickUpu hotový",
+                                    detail: "Čas \(item.seconds.hoursMinutes) zapsán · pokračuješ na „\(next.name)“")
+                } else {
+                    notch.showPrompt(NotchState.Prompt(
+                        symbol: "checkmark.circle",
+                        title: "Všechno v bloku je hotové",
+                        detail: "Vyber další úkol, ať se čas nikam neztratí",
+                        primaryTitle: "Vybrat",
+                        primary: { [weak self] in self?.addTasksToSession() },
+                        secondaryTitle: "Později",
+                        secondary: {}
+                    ))
+                }
+            }
+        }
+    }
+
+    private final class SaveOnce { var done = false }
 
     // MARK: - Focus, rozptýlení, Nerušit
 
     private func focusStateChanged() {
         distractionGuard.evaluate()
         updateDoNotDisturb()
+        // Nový pracovní blok → zeptej se na úkoly.
+        if settings.askTasks, timer.phase == .work, timer.isRunning, !session.isActive {
+            beginSession()
+        }
+        // Blok zresetovaný uprostřed → aspoň zapiš odpracovaný čas.
+        if session.isActive, timer.phase == .work, !timer.hasStarted, !timer.isAway {
+            _ = finishSession(ask: false)
+        }
         if timer.isRunning { suggester.reset() } else { suggester.evaluate() }
     }
 

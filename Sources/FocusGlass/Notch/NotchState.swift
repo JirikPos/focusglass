@@ -46,6 +46,26 @@ final class NotchState {
         case intent
         /// Otázka se dvěma tlačítky (např. „Spustit focus?“).
         case prompt
+        /// „Na čem budeš pracovat?“ – výběr úkolů na začátku bloku.
+        case tasks
+        /// „Splnil jsi to?“ – vyhodnocení úkolů na konci bloku.
+        case review
+
+        /// Zůstává otevřené, dokud neodpovíš (myš ho nezavře) a bere klávesnici.
+        var isSticky: Bool { self == .intent || self == .tasks || self == .review }
+        var takesKeyboard: Bool { self == .expanded || isSticky }
+    }
+
+    struct TaskPickerRequest {
+        /// Úkoly, které už v bloku jsou (nenabízet znovu).
+        let excluded: Set<String>
+        let choose: ([WorkSession.Item]) -> Void
+        let skip: () -> Void
+    }
+
+    struct TaskReviewRequest {
+        let items: [WorkSession.Item]
+        let save: ([String: Bool]) -> Void
     }
 
     struct Prompt {
@@ -86,6 +106,7 @@ final class NotchState {
     static let alertBodyHeight: CGFloat = 52
     static let intentBodyHeight: CGFloat = 96
     static let promptBodyHeight: CGFloat = 56
+    static let tasksBodyHeight: CGFloat = 176
     static let minimumReasonLength = 15
     static let expandedBodyHeight: CGFloat = 86
     /// Okraj okna kolem tvaru (rozbalený / sbalený), aby se záře vešla a neořízla.
@@ -99,6 +120,9 @@ final class NotchState {
     private(set) var mode: Mode = .idle
     private(set) var alert: Alert?
     @ObservationIgnored private(set) var intent: IntentRequest?
+    @ObservationIgnored private(set) var taskPicker: TaskPickerRequest?
+    @ObservationIgnored private(set) var taskReview: TaskReviewRequest?
+    private(set) var tasksID = UUID()
     @ObservationIgnored private(set) var prompt: Prompt?
     private(set) var promptID = UUID()
     /// Mění se s každou novou žádostí (resetuje textové pole).
@@ -154,6 +178,10 @@ final class NotchState {
         case .alert: CGSize(width: expandedSize.width, height: notchSize.height + Self.alertBodyHeight)
         case .intent: CGSize(width: expandedSize.width, height: notchSize.height + Self.intentBodyHeight)
         case .prompt: CGSize(width: expandedSize.width, height: notchSize.height + Self.promptBodyHeight)
+        case .tasks: CGSize(width: expandedSize.width, height: notchSize.height + Self.tasksBodyHeight)
+        case .review:
+            CGSize(width: expandedSize.width,
+                   height: notchSize.height + 74 + CGFloat(min(taskReview?.items.count ?? 1, 4)) * 30)
         }
     }
 
@@ -244,9 +272,39 @@ final class NotchState {
         setMode(.idle)
     }
 
+    /// „Na čem budeš pracovat?“ – zůstane, dokud nevybereš (nebo „Bez úkolu“ / Esc).
+    func showTaskPicker(_ request: TaskPickerRequest) {
+        pending?.cancel()
+        taskPicker = request
+        tasksID = UUID()
+        setMode(.tasks)
+    }
+
+    func resolveTaskPicker(_ chosen: [WorkSession.Item]?) {
+        guard let request = taskPicker else { return }
+        taskPicker = nil
+        if let chosen, !chosen.isEmpty { request.choose(chosen) } else { request.skip() }
+        setMode(.idle)
+    }
+
+    /// „Splnil jsi to?“ – zůstane, dokud neuložíš (Esc = uložit jen čas, bez splnění).
+    func showTaskReview(_ request: TaskReviewRequest) {
+        pending?.cancel()
+        taskReview = request
+        tasksID = UUID()
+        setMode(.review)
+    }
+
+    func resolveTaskReview(_ answers: [String: Bool]) {
+        guard let request = taskReview else { return }
+        taskReview = nil
+        request.save(answers)
+        setMode(.idle)
+    }
+
     /// Krátké upozornění, které se samo schová (pokud na něm nemáš myš).
     func showAlert(_ alert: Alert) {
-        guard mode != .expanded, mode != .intent, mode != .prompt else { return }
+        guard mode != .expanded, mode != .prompt, !mode.isSticky else { return }
         pending?.cancel()
         self.alert = alert
         setMode(.alert)
@@ -263,8 +321,8 @@ final class NotchState {
     private func setHovering(_ hovering: Bool) {
         guard hovering != isHovering else { return }
         isHovering = hovering
-        // Otázka na důvod se myší nezavírá.
-        guard mode != .intent else { return }
+        // Otázky (důvod, úkoly, vyhodnocení) se myší nezavírají.
+        guard !mode.isSticky else { return }
         // Otázka s tlačítky: na myši čeká, po odjetí dá ještě chvíli na rozmyšlenou.
         if mode == .prompt {
             hovering ? pending?.cancel() : schedule(.idle, after: 8)
@@ -293,7 +351,7 @@ final class NotchState {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 // Pojistka: nezavírat, pokud je kurzor pořád na notchi nebo čeká otázka.
-                if target == .idle && self.mode == .intent { return }
+                if target == .idle && self.mode.isSticky { return }
                 if target == .idle && (self.isMouseInside || self.isDropTargeted) {
                     self.isHovering = true
                     return
