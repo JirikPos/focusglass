@@ -26,6 +26,10 @@ struct SettingsView: View {
                     .padding(.bottom, 8)
                 }
                 Hairline()
+                SettingRow(icon: "rectangle.topthird.inset.filled", title: "Notch") {
+                    Toggle("", isOn: Binding(get: { settings.notchEnabled }, set: model.setNotchEnabled))
+                }
+                Hairline()
                 SettingRow(icon: "menubar.rectangle", title: "Čas v liště") {
                     Toggle("", isOn: $settings.showTimeInMenuBar)
                 }

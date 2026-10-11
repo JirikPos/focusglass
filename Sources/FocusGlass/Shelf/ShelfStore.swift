@@ -30,6 +30,20 @@ final class ShelfStore {
         save()
     }
 
+    /// Přijme soubory přetažené na notch.
+    func accept(_ providers: [NSItemProvider]) -> Bool {
+        let files = providers.filter { $0.canLoadObject(ofClass: URL.self) }
+        for provider in files {
+            _ = provider.loadObject(ofClass: URL.self) { [weak self] url, _ in
+                guard let url else { return }
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { self?.add(url) }
+                }
+            }
+        }
+        return !files.isEmpty
+    }
+
     func remove(_ item: ShelfItem) {
         items.removeAll { $0 == item }
         icons[item.url] = nil

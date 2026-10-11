@@ -77,43 +77,57 @@ struct NotchView: View {
     var body: some View {
         @Bindable var bindable = notch
         let expanded = notch.isExpanded
-        let shape = NotchShape(topRadius: expanded ? 14 : 6, bottomRadius: expanded ? 24 : 10)
+        let shape = NotchShape(topRadius: expanded ? 10 : 6, bottomRadius: expanded ? 18 : 10)
 
         ZStack(alignment: .top) {
             shape.fill(.black)
 
-            if expanded {
+            // Obsah má vždy svou cílovou velikost a odkrývá ho rostoucí tvar
+            // (clipShape níže) – nic se neroztahuje ani neujíždí do stran.
+            switch notch.mode {
+            case .expanded:
                 ExpandedNotch()
-                    .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .top)))
-            } else if let compact = notch.compact {
-                CompactNotch(content: compact)
-                    .transition(.opacity)
+                    .frame(width: notch.expandedSize.width, height: notch.expandedSize.height)
+                    .transition(.revealFromNotch)
+            case .peek:
+                CompactNotch(content: notch.compact)
+                    .frame(width: notch.compactSize.width, height: notch.compactSize.height)
+                    .transition(.asymmetric(
+                        insertion: .opacity.animation(.easeOut(duration: 0.2).delay(0.12)),
+                        removal: .opacity.animation(.easeOut(duration: 0.1))
+                    ))
+            case .idle:
+                EmptyView()
             }
 
             if notch.isDropTargeted {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .strokeBorder(.white.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
-                    .padding(EdgeInsets(top: notch.notchSize.height + 6, leading: 24, bottom: 12, trailing: 24))
+                    .padding(EdgeInsets(top: notch.notchSize.height + 4, leading: 22, bottom: 8, trailing: 22))
                     .transition(.opacity)
             }
         }
         .frame(width: notch.shapeSize.width, height: notch.shapeSize.height)
         .clipShape(shape)
+        .overlay(shape.stroke(.white.opacity(expanded ? 0.12 : 0.1), lineWidth: 1))
         .contentShape(shape)
         .compositingGroup()
-        .shadow(color: .black.opacity(expanded ? 0.5 : 0), radius: 18, y: 8)
+        // Slabá záře. Její dosah (~3× radius) musí zůstat uvnitř okraje okna
+        // (`glowMargin` / `shadowMargin`), jinak ji okno ořízne do viditelného obdélníku.
+        .shadow(color: .white.opacity(expanded ? 0.12 : 0.1), radius: expanded ? 5 : 3)
+        .onTapGesture { notch.click() }
         .onDrop(of: [.fileURL], isTargeted: $bindable.isDropTargeted) { providers in
             model.shelf.accept(providers)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(.spring(response: 0.42, dampingFraction: 0.82), value: notch.shapeSize)
+        .animation(expanded ? NotchState.openAnimation : NotchState.closeAnimation, value: notch.shapeSize)
         .animation(.smooth(duration: 0.25), value: notch.isDropTargeted)
         .foregroundStyle(.white)
         .environment(\.colorScheme, .dark)
     }
 }
 
-// MARK: - Sbalený notch
+// MARK: - Sbalený notch (náhled)
 
 private struct CompactNotch: View {
     let content: NotchState.Compact
@@ -124,7 +138,7 @@ private struct CompactNotch: View {
         HStack(spacing: 0) {
             Image(systemName: content.symbol)
                 .symbolRenderingMode(.monochrome)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .frame(width: content.wing)
             Spacer(minLength: notch.notchSize.width)
             trailing
@@ -138,11 +152,11 @@ private struct CompactNotch: View {
         switch content.trailing {
         case .time:
             Text(model.timer.remaining.clock)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .monospacedDigit()
         case .symbol(let name):
             Image(systemName: name)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.white.opacity(0.7))
         }
     }
@@ -157,26 +171,26 @@ private struct ExpandedNotch: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                HStack(spacing: 2) {
+                HStack(spacing: 1) {
                     ForEach(NotchTab.allCases) { tab in
                         TabButton(tab: tab, selected: notch.tab == tab) { notch.tab = tab }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, 20)
+                .padding(.leading, 24)
 
                 Color.clear.frame(width: notch.notchSize.width)
 
                 status
                     .frame(maxWidth: .infinity, alignment: .trailing)
-                    .padding(.trailing, 22)
+                    .padding(.trailing, 26)
             }
             .frame(height: notch.notchSize.height)
 
             notch.tab.content
-                .padding(.horizontal, 24)
-                .padding(.top, 10)
-                .padding(.bottom, 18)
+                .padding(.horizontal, 26)
+                .padding(.top, 4)
+                .padding(.bottom, 12)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .id(notch.tab)
                 .transition(.opacity)
@@ -194,12 +208,12 @@ private struct ExpandedNotch: View {
                 Text(timer.remaining.clock)
                     .monospacedDigit()
             }
-            .font(.system(size: 11, weight: .medium))
+            .font(.system(size: 10, weight: .medium))
             .foregroundStyle(.white.opacity(0.6))
         } else {
             Text(notch.tab.title.uppercased())
-                .font(.system(size: 9, weight: .semibold))
-                .tracking(2)
+                .font(.system(size: 8, weight: .semibold))
+                .tracking(1.6)
                 .foregroundStyle(.white.opacity(0.35))
         }
     }
@@ -214,13 +228,36 @@ private struct TabButton: View {
         Button(action: action) {
             Image(systemName: tab.symbol)
                 .symbolRenderingMode(.monochrome)
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.white.opacity(selected ? 1 : 0.4))
-                .frame(width: 30, height: 22)
+                .frame(width: 24, height: 18)
                 .background(Capsule().fill(.white.opacity(selected ? 0.12 : 0)))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .help(tab.title)
+    }
+}
+
+// MARK: - Animace
+
+/// Obsah se při otevření rozostřený zjasní, zatímco ho tvar odkrývá od výřezu dolů a do stran.
+private struct RevealModifier: ViewModifier {
+    let progress: Double
+
+    func body(content: Content) -> some View {
+        content
+            .blur(radius: (1 - progress) * 6)
+            .opacity(progress)
+    }
+}
+
+extension AnyTransition {
+    static var revealFromNotch: AnyTransition {
+        .asymmetric(
+            insertion: .modifier(active: RevealModifier(progress: 0), identity: RevealModifier(progress: 1))
+                .animation(.easeOut(duration: 0.3).delay(0.06)),
+            removal: .opacity.animation(.easeIn(duration: 0.12))
+        )
     }
 }

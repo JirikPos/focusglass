@@ -131,3 +131,26 @@ struct Keycap: View {
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(.white.opacity(0.2), lineWidth: 0.75))
     }
 }
+
+/// Prázdný stav panelu (ikona, nadpis, popis).
+struct EmptyNotchState: View {
+    let symbol: String
+    let title: String
+    let detail: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .light))
+                .foregroundStyle(.white.opacity(0.4))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 11.5, weight: .medium))
+                Text(detail)
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}

@@ -21,7 +21,7 @@ Aplikace nemá ikonu v Docku. To je záměr.
 
 **Odinstalace:** v nastavení vypni *Spustit po přihlášení*, aplikaci ukonči a smaž `/Applications/FocusGlass.app`.
 
-**Všechny příkazy:** `make` (nápověda), `make install`, `make dev`, `make run`, `make stop`, `make restart`, `make clean`, `make uninstall`, `make icon`, `make preview` (hned ukáže cvičení očí).
+**Všechny příkazy:** `make` (nápověda), `make install`, `make dev`, `make run`, `make stop`, `make restart`, `make clean`, `make uninstall`, `make icon`, `make preview` (hned ukáže cvičení očí), `make notch` (hned rozbalí notch).
 
 
 ## Funkce
@@ -43,6 +43,14 @@ Aplikace nemá ikonu v Docku. To je záměr.
 - **Detekce odchodu:** když se 1, 2 nebo 5 minut (nastavitelné) nedotkneš myši ani klávesnice, časovač se zastaví
   a čas strávený mimo počítač se do práce nezapočítá. Po návratu se sám rozběhne
   a další připomínka pro oči přijde až za 20 minut. Detekce nepotřebuje žádná oprávnění.
+- **Notch:** černý „ostrůvek“ přesně přes výřez kamery (na Macu bez výřezu malá kapsle nahoře uprostřed).
+  - *Sbalený:* když běží časovač, ukazuje vedle výřezu stav a čas; když hraje hudba, notu a vlnu.
+  - *Rozbalený* (najetím myší): panely **Focus** (časovač, ovládání, pauza pro oči), **Hudba**
+    (Apple Music / Spotify: skladba, interpret, předchozí / play / další) a **Odkladiště**.
+  - *Odkladiště:* přetáhni soubory na notch, zůstanou tam (i po restartu) a odtud je přetáhneš kamkoli.
+    Dvojklik soubor otevře, pravé tlačítko nabídne *Zobrazit ve Finderu* nebo *Odebrat*.
+  - Ovládání hudby si při prvním použití vyžádá svolení (Nastavení systému → Soukromí → Automatizace).
+  - Vypnout jde v nastavení přepínačem *Notch*.
 - **Spustit po přihlášení** přes `SMAppService.mainApp`.
 - Při uspání Macu, vypnutí displeje nebo přepnutí uživatele se časovač pozastaví.
 
@@ -75,20 +83,25 @@ jako bundle, takže se v Docku objeví ikona a *Spustit po přihlášení* nefun
 5. Target → *Signing & Capabilities*: App Sandbox může zůstat zapnutý, aplikace nic dalšího nepotřebuje.
 6. ⌘R.
 
-## Struktura
+## Architektura
 
-| Soubor | Obsah |
-|---|---|
-| `FocusGlassApp.swift` | `@main`, `MenuBarExtra` a štítek v liště |
-| `AppModel.swift` | propojení časovače, nastavení, overlaye a zvuků |
-| `FocusTimer.swift` | stavový automat práce/pauzy, plánování 20-20-1, detekce odchodu |
-| `Overlay.swift` | tmavé overlaye přes všechny obrazovky, Esc, auto-zavření |
-| `EyeExercise.swift` | kroky a animace cvičení očí (`Canvas`) |
-| `ContentView.swift` | okno z lišty: profily, odpočet, ovládání, oči, citát |
-| `SettingsView.swift` | nastavení včetně spouštění po přihlášení |
-| `GlassStyle.swift` | skleněný panel, tlačítka, prstenec, zkracující se linka |
-| `Quotes.swift` | 32 tvrdých anglických citátů (Goggins, Tate, podnikatelé, disciplína) |
-| `LaunchAtLogin.swift` | obal nad `SMAppService.mainApp` |
+```
+Sources/FocusGlass/
+├── App/           vstupní bod, AppModel (propojuje všechny funkce)
+├── Core/          nastavení, citáty, spouštění po přihlášení
+├── DesignSystem/  sklo, tlačítka, prstenec, linka, prázdné stavy
+├── MenuBar/       okno z lišty a nastavení
+├── Focus/         časovač, cvičení očí, tmavé overlaye, panel Focus pro notch
+├── Notch/         okno notche, tvar, hover, registr panelů (NotchTab)
+├── Media/         Apple Music / Spotify + panel Hudba
+└── Shelf/         odkladiště souborů + panel Odkladiště
+```
+
+**Jak přidat novou funkci do notche:**
+1. Nová složka, např. `Sources/FocusGlass/Calendar/`, se službou (`@Observable` třída) a view panelu.
+2. Službu přidej jako vlastnost do `AppModel`.
+3. V `Notch/NotchView.swift` přidej `case` do `NotchTab` (ikona, název, view). Hotovo: tlačítko panelu
+   se v notchi objeví samo.
 
 ## Výkon
 
@@ -97,7 +110,10 @@ jako bundle, takže se v Docku objeví ikona a *Spustit po přihlášení* nefun
   Zbývající čas se počítá z cílového `Date`, takže tik slouží jen k překreslení.
 - Při detekci odchodu kontroluje nečinnost 1× za sekundu jen v době, kdy jsi pryč.
 - Overlay okna vznikají až při zobrazení a hned po zavření se uvolní.
-- Naměřeno (Apple Silicon, macOS 26): **footprint ~15 MB** po startu, ~26 MB po prvním overlayi
+- **Notch:** okno má vždy jen velikost aktuálního tvaru (nic dalšího neblokuje), hover hlídá systémová
+  „tracking area“ (události, žádné dotazování), hudba se čte ze systémových notifikací Music/Spotify.
+  Sbalený a nečinný notch = statická černá plocha, 0 % CPU. Animace běží jen při rozbalení/sbalení.
+- Naměřeno (Apple Silicon, macOS 26): **footprint ~15 MB** po startu, ~17–21 MB s notchem, ~26 MB po prvním overlayi
   (SwiftUI si nechá vykreslovací cache), 0 % CPU v klidu. Během minutového cvičení animace
   ve 30 fps zabere ~14 % jednoho jádra.
   RSS v `ps` ukazuje víc, protože započítává sdílené systémové frameworky.

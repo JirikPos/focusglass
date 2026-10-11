@@ -7,9 +7,12 @@ import Observation
 final class AppModel {
     let settings: AppSettings
     let timer: FocusTimer
+    let media = NowPlaying()
+    let shelf = ShelfStore()
     private(set) var quote = Quotes.random()
 
     @ObservationIgnored private let overlay = OverlayController()
+    @ObservationIgnored private var notch: NotchController!
 
     init() {
         // Celá aplikace je v matně černém stylu bez ohledu na systémový vzhled.
@@ -24,6 +27,16 @@ final class AppModel {
             self?.phaseChanged(ended: ended, manual: manual)
         }
 
+        notch = NotchController(model: self)
+        // Okna až po dokončení startu aplikace.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.notch.setEnabled(self.settings.notchEnabled)
+            if CommandLine.arguments.contains("--notch-open") {
+                self.notch.expandForPreview()
+            }
+        }
+
         // Vývoj: `make preview` spustí aplikaci rovnou s cvičením očí.
         if CommandLine.arguments.contains("--eye-break") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
@@ -35,6 +48,11 @@ final class AppModel {
     func selectProfile(_ profile: FocusProfile) {
         settings.profileID = profile.id
         timer.setProfile(profile)
+    }
+
+    func setNotchEnabled(_ enabled: Bool) {
+        settings.notchEnabled = enabled
+        notch.setEnabled(enabled)
     }
 
     func shuffleQuote() {

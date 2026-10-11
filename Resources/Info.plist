@@ -28,6 +28,8 @@
 	<string>14.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>FocusGlass ovládá přehrávání v Apple Music a Spotify z notche.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>

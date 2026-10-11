@@ -3,7 +3,7 @@ APP      := build/$(APP_NAME).app
 INSTALLED := /Applications/$(APP_NAME).app
 
 .DEFAULT_GOAL := help
-.PHONY: help build app install run stop restart dev clean uninstall icon preview
+.PHONY: help build app install run stop restart dev clean uninstall icon preview notch
 
 help: ## Zobrazí tuto nápovědu
 	@grep -E '^[a-z]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  \033[36mmake %-10s\033[0m %s\n", $$1, $$2}'
@@ -41,3 +41,7 @@ icon: ## Přegeneruje ikonu (Resources/AppIcon.icns)
 preview: app ## Spustí lokální build rovnou s cvičením očí
 	-pkill -x $(APP_NAME)
 	open "$(APP)" --args --eye-break
+
+notch: app ## Spustí lokální build s rozbaleným notchem
+	-pkill -x $(APP_NAME)
+	open "$(APP)" --args --notch-open

@@ -28,10 +28,10 @@ private final class NotchPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-/// Hosting view, který hlásí pohyb myši (hover funguje, i když je aplikace neaktivní)
+/// Hosting view, který hlásí události myši (hover funguje, i když je aplikace neaktivní)
 /// a reaguje na první kliknutí bez nutnosti aktivace.
 private final class NotchHostingView<Content: View>: NSHostingView<Content> {
-    var onMouse: ((CGPoint?) -> Void)?
+    var onMouse: (() -> Void)?
     private var tracking: NSTrackingArea?
 
     override func updateTrackingAreas() {
@@ -48,17 +48,17 @@ private final class NotchHostingView<Content: View>: NSHostingView<Content> {
 
     override func mouseEntered(with event: NSEvent) {
         super.mouseEntered(with: event)
-        onMouse?(convert(event.locationInWindow, from: nil))
+        onMouse?()
     }
 
     override func mouseMoved(with event: NSEvent) {
         super.mouseMoved(with: event)
-        onMouse?(convert(event.locationInWindow, from: nil))
+        onMouse?()
     }
 
     override func mouseExited(with event: NSEvent) {
         super.mouseExited(with: event)
-        onMouse?(nil)
+        onMouse?()
     }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -90,6 +90,11 @@ final class NotchController {
         enabled ? show() : hide()
     }
 
+    /// Vývoj: rozbalí notch bez myši (`--notch-open`).
+    func expandForPreview() {
+        state?.expand()
+    }
+
     private func rebuild() {
         guard panel != nil else { return }
         hide()
@@ -100,15 +105,27 @@ final class NotchController {
         guard panel == nil, let screen = NotchGeometry.preferredScreen() else { return }
         let state = NotchState(model: model, geometry: NotchGeometry(screen: screen))
 
-        let host = NotchHostingView(rootView: NotchView().environment(model).environment(state))
+        let host = NotchHostingView(
+            rootView: NotchView().environment(model).environment(state).ignoresSafeArea()
+        )
+        // Okno řídíme sami: hosting view nesmí měnit velikost okna ani řešit
+        // bezpečnou oblast kolem výřezu (jinak se layout zacyklí).
         host.sizingOptions = []
-        host.onMouse = { [weak state, weak host] point in
-            guard let host else { return }
-            MainActor.assumeIsolated { state?.mouseMoved(to: point, in: host.bounds) }
+        host.safeAreaRegions = []
+        host.autoresizingMask = [.width, .height]
+        state.prepareWindow = { [weak self] size in
+            self?.growImmediately(to: size)
+        }
+        host.onMouse = { [weak state] in
+            MainActor.assumeIsolated { state?.mouseChanged() }
         }
 
+        let container = NSView()
+        container.addSubview(host)
+
         let panel = NotchPanel()
-        panel.contentView = host
+        panel.contentView = container
+        host.frame = container.bounds
         self.panel = panel
         self.state = state
         self.screen = screen
@@ -117,6 +134,7 @@ final class NotchController {
 
         applyFrame()
         panel.orderFrontRegardless()
+        NotchSpace.shared.add(panel)
         observeSize(generation: generation)
     }
 
@@ -167,6 +185,18 @@ final class NotchController {
         }
         shrinkWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+    }
+
+    /// Zvětší okno okamžitě (jen zvětšuje, zmenšení řeší `applyFrame` po animaci).
+    private func growImmediately(to size: CGSize) {
+        guard let panel, let screen else { return }
+        shrinkWork?.cancel()
+        let union = CGSize(width: max(size.width, appliedSize.width),
+                           height: max(size.height, appliedSize.height))
+        guard union != appliedSize else { return }
+        setFrame(union, panel: panel, screen: screen)
+        // Ať SwiftUI zná novou velikost dřív, než začne animovat.
+        panel.contentView?.layoutSubtreeIfNeeded()
     }
 
     private func setFrame(_ size: CGSize, panel: NSPanel, screen: NSScreen) {
