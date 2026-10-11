@@ -34,6 +34,10 @@
 	<string>FocusGlass analyzuje přehrávaný zvuk pro vizualizér hudby v notchi. Nic se nenahrává ani neodesílá.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>FocusGlass ukazuje v notchi, za kolik minut začíná další schůzka.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>FocusGlass přidává nové screenshoty do odkladiště v notchi.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>FocusGlass přidává stažené soubory do odkladiště v notchi.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

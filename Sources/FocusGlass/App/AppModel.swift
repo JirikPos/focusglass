@@ -20,6 +20,16 @@ final class AppModel {
     let clickUp: ClickUpService
     let session = WorkSession()
     @ObservationIgnored private var taskPoll: Timer?
+    @ObservationIgnored private lazy var screenshotWatcher = FolderWatcher(kind: .screenshots) { [weak self] url in
+        self?.fileArrived(url)
+    }
+    @ObservationIgnored private lazy var downloadWatcher = FolderWatcher(kind: .downloads) { [weak self] url in
+        self?.fileArrived(url)
+    }
+    @ObservationIgnored private let power = PowerMonitor()
+    @ObservationIgnored private let resources = ResourceMonitor()
+    @ObservationIgnored private var meetingTimer: Timer?
+    @ObservationIgnored private var alertedMeetingID: String?
     @ObservationIgnored private var reviewTimer: Timer?
     @ObservationIgnored private let forcedReview = ForcedReviewController()
     private(set) var quote = Quotes.random()
@@ -77,9 +87,11 @@ final class AppModel {
         }
         suggester.onSuggest = { [weak self] app in self?.suggestFocus(in: app) }
 
+        calendar.onChange = { [weak self] in self?.scheduleMeetingAlert() }
         calendar.setEnabled(settings.calendarEnabled)
         clipboard.setEnabled(settings.clipboardEnabled)
         registerHotKeys()
+        setUpSystemExtras()
 
         notch = NotchController(model: self)
         // Okna až po dokončení startu aplikace.
@@ -92,6 +104,9 @@ final class AppModel {
             self.suggester.evaluate()
             self.scheduleEveningReview()
             Task { await self.habits.refresh() }
+            // Vývoj: `--battery` / `--peek` ukážou animaci nabíjení / pasivní odkladiště.
+            if CommandLine.arguments.contains("--battery") { self.notch.showBattery(percent: 76, charging: true) }
+            if CommandLine.arguments.contains("--peek") { self.notch.peekShelf() }
             // Vývoj: `--review` rovnou ukáže vynucené review.
             if CommandLine.arguments.contains("--review") {
                 self.forcedReview.present(model: self) { _ in }
@@ -483,6 +498,85 @@ final class AppModel {
         UserDefaults.standard.set(Self.today, forKey: Self.reviewedKey)
         notch.open(tab: .habits)
         scheduleEveningReview()
+    }
+
+    // MARK: - Screenshoty, stahování, schůzky, baterie, žrouti výkonu
+
+    private func setUpSystemExtras() {
+        power.onPluggedIn = { [weak self] state in
+            guard let self, self.settings.batteryAlerts else { return }
+            self.notch.showBattery(percent: state.percent, charging: true)
+        }
+        power.onLow = { [weak self] state in
+            guard let self, self.settings.batteryAlerts else { return }
+            self.playSound("Tink")
+            self.notch.showAlert(title: "Baterie \(state.percent) %", detail: "Připoj nabíječku")
+        }
+        power.start()
+
+        resources.onHog = { [weak self] hog in
+            guard let self else { return }
+            self.notch.showPrompt(NotchState.Prompt(
+                symbol: "memorychip",
+                title: hog.reason,
+                detail: "Ukončení uvolní paměť a ušetří baterii",
+                primaryTitle: "Ukončit",
+                primary: { hog.app.terminate() },
+                secondaryTitle: "Nechat",
+                secondary: { [weak self] in self?.resources.ignore(hog) }
+            ))
+        }
+        applyExtras()
+    }
+
+    /// Zapne / vypne sledování podle nastavení (volá i nastavení po přepnutí).
+    func applyExtras() {
+        screenshotWatcher.setEnabled(settings.screenshotsToShelf)
+        downloadWatcher.setEnabled(settings.downloadsToShelf)
+        resources.setEnabled(settings.hogAlerts)
+        scheduleMeetingAlert()
+    }
+
+    /// Nový screenshot / stažený soubor → do odkladiště a na chvíli ukázat v notchi.
+    private func fileArrived(_ url: URL) {
+        shelf.add(url)
+        notch.peekShelf()
+    }
+
+    /// Jeden časovač na 2 minuty před nejbližší schůzkou (žádné dotazování).
+    private func scheduleMeetingAlert() {
+        meetingTimer?.invalidate()
+        meetingTimer = nil
+        guard settings.meetingAlerts, settings.calendarEnabled,
+              let meeting = calendar.next, meeting.id != alertedMeetingID,
+              meeting.start.timeIntervalSinceNow > -300 else { return }
+
+        let delay = max(1, meeting.start.addingTimeInterval(-120).timeIntervalSinceNow)
+        let timer = Timer(timeInterval: delay, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.announce(meeting) }
+        }
+        timer.tolerance = 5
+        RunLoop.main.add(timer, forMode: .common)
+        meetingTimer = timer
+    }
+
+    private func announce(_ meeting: CalendarService.Meeting) {
+        alertedMeetingID = meeting.id
+        let minutes = Int((meeting.start.timeIntervalSinceNow / 60).rounded(.up))
+        playSound("Glass")
+        notch.showPrompt(NotchState.Prompt(
+            symbol: "video",
+            title: minutes > 0 ? "\(meeting.title) za \(minutes) min" : "\(meeting.title) právě začíná",
+            detail: meeting.joinURL == nil
+                ? meeting.start.formatted(date: .omitted, time: .shortened)
+                : "\(meeting.start.formatted(date: .omitted, time: .shortened)) · \(meeting.joinURL?.host ?? "")",
+            primaryTitle: meeting.joinURL == nil ? "OK" : "Připojit",
+            primary: { if let url = meeting.joinURL { NSWorkspace.shared.open(url) } },
+            secondaryTitle: "Zavřít",
+            secondary: {}
+        ))
+        // Naplánuj další schůzku.
+        calendar.refresh()
     }
 
     private func playSound(_ name: String) {

@@ -1,6 +1,9 @@
 import AppKit
 import Observation
+import OSLog
 import SwiftUI
+
+private let notchLog = Logger(subsystem: "app.focusglass", category: "notch")
 
 /// Rozměry výřezu kamery na dané obrazovce (nebo náhradní „kapsle“ na Macu bez výřezu).
 struct NotchGeometry {
@@ -50,6 +53,8 @@ final class NotchState {
         case tasks
         /// „Splnil jsi to?“ – vyhodnocení úkolů na konci bloku.
         case review
+        /// Animace nabíjení vedle výřezu (jako na iPhonu).
+        case battery
 
         /// Zůstává otevřené, dokud neodpovíš (myš ho nezavře) a bere klávesnici.
         var isSticky: Bool { self == .intent || self == .tasks || self == .review }
@@ -61,6 +66,11 @@ final class NotchState {
         let excluded: Set<String>
         let choose: ([WorkSession.Item]) -> Void
         let skip: () -> Void
+    }
+
+    struct BatteryInfo: Equatable {
+        let percent: Int
+        let charging: Bool
     }
 
     struct TaskReviewRequest {
@@ -121,6 +131,9 @@ final class NotchState {
     private(set) var alert: Alert?
     @ObservationIgnored private(set) var intent: IntentRequest?
     @ObservationIgnored private(set) var taskPicker: TaskPickerRequest?
+    private(set) var battery: BatteryInfo?
+    /// Otevřeno automaticky (např. nový screenshot) – nebere klávesnici, dokud neklikneš.
+    @ObservationIgnored private(set) var passiveExpand = false
     @ObservationIgnored private(set) var taskReview: TaskReviewRequest?
     private(set) var tasksID = UUID()
     @ObservationIgnored private(set) var prompt: Prompt?
@@ -179,6 +192,7 @@ final class NotchState {
         case .intent: CGSize(width: expandedSize.width, height: notchSize.height + Self.intentBodyHeight)
         case .prompt: CGSize(width: expandedSize.width, height: notchSize.height + Self.promptBodyHeight)
         case .tasks: CGSize(width: expandedSize.width, height: notchSize.height + Self.tasksBodyHeight)
+        case .battery: CGSize(width: notchSize.width + 2 * 86, height: notchSize.height)
         case .review:
             CGSize(width: expandedSize.width,
                    height: notchSize.height + 74 + CGFloat(min(taskReview?.items.count ?? 1, 4)) * 30)
@@ -209,6 +223,12 @@ final class NotchState {
 
     /// Klik na notch v klidu nebo náhledu otevře celý notch.
     func click() {
+        if mode == .expanded, passiveExpand {
+            // Automaticky otevřený notch → po kliknutí už normálně (s klávesnicí).
+            passiveExpand = false
+            onModeChange?(.expanded)
+            return
+        }
         guard mode != .expanded else { return }
         pending?.cancel()
         setMode(.expanded)
@@ -302,6 +322,26 @@ final class NotchState {
         setMode(.idle)
     }
 
+    /// Nový soubor v odkladišti: notch se na chvíli otevře na odkladišti, ať ho můžeš rovnou přetáhnout.
+    /// Nebere klávesnici (nepřerušíš psaní) a sám se zavře, pokud na něj nenajedeš.
+    func peekShelf() {
+        guard mode == .idle || mode == .peek || mode == .alert || mode == .battery else { return }
+        pending?.cancel()
+        tab = .shelf
+        passiveExpand = true
+        setMode(.expanded, keepTab: true)
+        schedule(.idle, after: 4)
+    }
+
+    /// Animace nabíjení na pár sekund.
+    func showBattery(_ info: BatteryInfo) {
+        guard mode == .idle || mode == .peek else { return }
+        pending?.cancel()
+        battery = info
+        setMode(.battery)
+        schedule(.idle, after: 3.5)
+    }
+
     /// Krátké upozornění, které se samo schová (pokud na něm nemáš myš).
     func showAlert(_ alert: Alert) {
         guard mode != .expanded, mode != .prompt, !mode.isSticky else { return }
@@ -365,6 +405,7 @@ final class NotchState {
 
     private func setMode(_ newMode: Mode, keepTab: Bool = false) {
         guard newMode != mode else { return }
+        notchLog.debug("mode \(String(describing: self.mode), privacy: .public) → \(String(describing: newMode), privacy: .public)")
         if newMode == .expanded && !keepTab { tab = preferredTab }
         if newMode == .expanded || newMode == .peek { model.calendar.refresh() }
         if !tab.isAvailable(model.settings) { tab = .focus }
@@ -372,6 +413,7 @@ final class NotchState {
             || windowSize(for: newMode).width > windowSize.width
         // Okno zvětšit synchronně ještě před animací, jinak se první snímky oříznou.
         if growing { prepareWindow?(windowSize(for: newMode)) }
+        if newMode != .expanded { passiveExpand = false }
         withAnimation(growing ? Self.openAnimation : Self.closeAnimation) {
             mode = newMode
         }

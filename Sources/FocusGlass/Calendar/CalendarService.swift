@@ -11,9 +11,15 @@ private let log = Logger(subsystem: "app.focusglass", category: "calendar")
 @Observable
 final class CalendarService {
     struct Meeting: Equatable {
+        let id: String
         let title: String
         let start: Date
+        /// Odkaz na online schůzku (Teams, Zoom, Meet, Webex), pokud ho událost obsahuje.
+        let joinURL: URL?
     }
+
+    /// Volá se, když je potřeba přeplánovat upozornění na schůzku.
+    @ObservationIgnored var onChange: (() -> Void)?
 
     private(set) var next: Meeting?
     private(set) var status = EKEventStore.authorizationStatus(for: .event)
@@ -58,8 +64,29 @@ final class CalendarService {
         let event = all
             .filter { !$0.isAllDay && $0.startDate > now }
             .min { $0.startDate < $1.startDate }
-        let meeting = event.map { Meeting(title: $0.title ?? "Schůzka", start: $0.startDate) }
+        let meeting = event.map {
+            Meeting(id: $0.eventIdentifier ?? UUID().uuidString, title: $0.title ?? "Schůzka",
+                    start: $0.startDate, joinURL: Self.joinURL(in: $0))
+        }
         if meeting != next { next = meeting }
+        onChange?()
+    }
+
+    /// Najde odkaz na online schůzku v URL, místě konání nebo poznámkách události.
+    private static func joinURL(in event: EKEvent) -> URL? {
+        let hosts = ["teams.microsoft.com", "teams.live.com", "zoom.us", "meet.google.com", "webex.com", "whereby.com"]
+        let texts = [event.url?.absoluteString, event.location, event.notes].compactMap { $0 }
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
+            return nil
+        }
+        for text in texts {
+            let range = NSRange(text.startIndex..., in: text)
+            for match in detector.matches(in: text, range: range) {
+                guard let url = match.url, let host = url.host?.lowercased() else { continue }
+                if hosts.contains(where: { host == $0 || host.hasSuffix("." + $0) }) { return url }
+            }
+        }
+        return nil
     }
 
     func openPrivacySettings() {

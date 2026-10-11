@@ -121,6 +121,12 @@ struct NotchView: View {
                         .frame(width: notch.size(for: .prompt).width, height: notch.size(for: .prompt).height)
                         .transition(.revealFromNotch)
                 }
+            case .battery:
+                if let battery = notch.battery {
+                    BatteryNotch(info: battery)
+                        .frame(width: notch.size(for: .battery).width, height: notch.size(for: .battery).height)
+                        .transition(.opacity.animation(.easeOut(duration: 0.2).delay(0.1)))
+                }
             case .tasks:
                 if let request = notch.taskPicker {
                     VStack(spacing: 0) {
@@ -215,6 +221,52 @@ private struct CompactNotch: View {
         }
         .font(.system(size: 11, weight: .medium))
         .frame(height: notch.notchSize.height)
+    }
+}
+
+// MARK: - Nabíjení
+
+/// Bílá baterie vlevo, která se „naplní“ na aktuální stav, a procenta vpravo.
+private struct BatteryNotch: View {
+    let info: NotchState.BatteryInfo
+    @Environment(NotchState.self) private var notch
+    @State private var fill: CGFloat = 0
+
+    var body: some View {
+        HStack(spacing: 0) {
+            HStack(spacing: 2) {
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3.5, style: .continuous)
+                        .strokeBorder(.white.opacity(0.45), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(.white)
+                        .frame(width: max(2, 22 * fill))
+                        .padding(2)
+                        .shadow(color: .white.opacity(0.6), radius: 4 * fill)
+                }
+                .frame(width: 26, height: 13)
+                RoundedRectangle(cornerRadius: 1).fill(.white.opacity(0.45)).frame(width: 1.5, height: 4)
+            }
+            .frame(maxWidth: .infinity)
+
+            Spacer(minLength: notch.notchSize.width)
+
+            HStack(spacing: 3) {
+                if info.charging {
+                    Image(systemName: "bolt.fill").font(.system(size: 9, weight: .semibold))
+                }
+                Text("\(info.percent) %")
+                    .font(.system(size: 12, weight: .medium))
+                    .monospacedDigit()
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .frame(height: notch.notchSize.height)
+        .onAppear {
+            withAnimation(.spring(response: 1.1, dampingFraction: 0.85).delay(0.15)) {
+                fill = CGFloat(info.percent) / 100
+            }
+        }
     }
 }
 

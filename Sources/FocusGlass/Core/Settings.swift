@@ -50,6 +50,11 @@ final class AppSettings {
         static let askTasks = "askTasksBeforeBlock"
         static let clickUpTeam = "clickUpTeamID"
         static let clickUpUser = "clickUpUserID"
+        static let screenshotsToShelf = "screenshotsToShelf"
+        static let downloadsToShelf = "downloadsToShelf"
+        static let meetingAlerts = "meetingAlerts"
+        static let batteryAlerts = "batteryAlerts"
+        static let hogAlerts = "resourceHogAlerts"
         static let workApps = "workApps"
         static let allowMinutes = "allowMinutes"
         static let dailyGoal = "dailyGoalHours"
@@ -95,6 +100,11 @@ final class AppSettings {
     /// ClickUp workspace (team) a uživatel. Token je v Klíčence.
     var clickUpTeamID: String { didSet { defaults.set(clickUpTeamID, forKey: Key.clickUpTeam) } }
     var clickUpUserID: Int { didSet { defaults.set(clickUpUserID, forKey: Key.clickUpUser) } }
+    var screenshotsToShelf: Bool { didSet { defaults.set(screenshotsToShelf, forKey: Key.screenshotsToShelf) } }
+    var downloadsToShelf: Bool { didSet { defaults.set(downloadsToShelf, forKey: Key.downloadsToShelf) } }
+    var meetingAlerts: Bool { didSet { defaults.set(meetingAlerts, forKey: Key.meetingAlerts) } }
+    var batteryAlerts: Bool { didSet { defaults.set(batteryAlerts, forKey: Key.batteryAlerts) } }
+    var hogAlerts: Bool { didSet { defaults.set(hogAlerts, forKey: Key.hogAlerts) } }
     static let allowOptions = [5, 10, 15]
     var dailyGoalHours: Int { didSet { defaults.set(dailyGoalHours, forKey: Key.dailyGoal) } }
     var autoDND: Bool { didSet { defaults.set(autoDND, forKey: Key.autoDND) } }
@@ -127,6 +137,11 @@ final class AppSettings {
             Key.askTasks: true,
             Key.clickUpTeam: "",
             Key.clickUpUser: 0,
+            Key.screenshotsToShelf: true,
+            Key.downloadsToShelf: true,
+            Key.meetingAlerts: true,
+            Key.batteryAlerts: true,
+            Key.hogAlerts: true,
             Key.dailyGoal: 4,
             Key.autoDND: false,
             Key.calendar: false,
@@ -162,6 +177,11 @@ final class AppSettings {
         askTasks = defaults.bool(forKey: Key.askTasks)
         clickUpTeamID = defaults.string(forKey: Key.clickUpTeam) ?? ""
         clickUpUserID = defaults.integer(forKey: Key.clickUpUser)
+        screenshotsToShelf = defaults.bool(forKey: Key.screenshotsToShelf)
+        downloadsToShelf = defaults.bool(forKey: Key.downloadsToShelf)
+        meetingAlerts = defaults.bool(forKey: Key.meetingAlerts)
+        batteryAlerts = defaults.bool(forKey: Key.batteryAlerts)
+        hogAlerts = defaults.bool(forKey: Key.hogAlerts)
         dailyGoalHours = max(1, defaults.integer(forKey: Key.dailyGoal))
         autoDND = defaults.bool(forKey: Key.autoDND)
         calendarEnabled = defaults.bool(forKey: Key.calendar)

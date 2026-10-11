@@ -160,6 +160,8 @@ struct SettingsView: View {
             .padding(.bottom, 10)
             .glassPanel()
 
+            ExtrasSettingsCard()
+
             ClickUpSettingsCard()
 
             NotionSettingsCard()

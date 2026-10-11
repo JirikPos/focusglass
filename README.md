@@ -53,6 +53,13 @@ Aplikace nemá ikonu v Docku. To je záměr.
     pravé tlačítko = otevřít / AirDrop / Finder / odebrat. Volitelně se soubor po vytažení sám odebere.
   - *Schránka:* posledních 10 zkopírovaných textů (jen v paměti, hesla ze správců hesel se ignorují).
     Kliknutí zkopíruje zpět. **⌃⌥ V** otevře rovnou schránku.
+- **Screenshoty a stahování:** nový screenshot (nebo dokončené stahování) se sám objeví v odkladišti
+  a notch se na 4 s otevře, ať ho můžeš rovnou přetáhnout do Slacku, Figmy nebo mailu.
+- **Připojit ke schůzce:** 2 minuty před schůzkou z kalendáře notch nabídne „Připojit“ (Teams, Zoom,
+  Meet, Webex – odkaz se najde v události).
+- **Baterie:** po připojení nabíječky krátká animace nabíjení vedle výřezu, při 20 % a 10 % varování.
+- **Žrouti výkonu:** aplikace nad 3 GB paměti nebo 3 minuty na plném CPU → „Chrome bere 4,2 GB · Ukončit?“
+  (počítá se včetně pomocných procesů; „Nechat“ = klid na 24 h).
 - **Hlídač rozptýlení:** během focusu sleduje aplikace (Discord, Telegram…) a weby (YouTube, Instagram…)
   v Safari, Chrome, Arc, Brave a Edge. Když tam odskočíš, notch tě tvrdě upozorní a ztracený čas se
   započítá do statistik. Seznamy upravíš v nastavení.

@@ -103,6 +103,12 @@ final class NotchController {
         state?.showAlert(NotchState.Alert(title: title, detail: detail))
     }
 
+    func peekShelf() { state?.peekShelf() }
+
+    func showBattery(percent: Int, charging: Bool) {
+        state?.showBattery(NotchState.BatteryInfo(percent: percent, charging: charging))
+    }
+
     @discardableResult
     func showTaskPicker(_ request: NotchState.TaskPickerRequest) -> Bool {
         guard let state else { return false }
@@ -196,7 +202,7 @@ final class NotchController {
     /// Po zavření ji vrátí aplikaci, ve které jsi pracoval.
     private func modeChanged(_ mode: NotchState.Mode) {
         guard let panel else { return }
-        if mode.takesKeyboard {
+        if mode.takesKeyboard, state?.passiveExpand != true {
             panel.allowsKey = true
             panel.makeKey()
             installKeyMonitor()
