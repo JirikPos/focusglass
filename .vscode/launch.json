@@ -1,0 +1,24 @@
+{
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:FocusGlass}",
+      "name": "Debug FocusGlass",
+      "target": "FocusGlass",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug FocusGlass"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:FocusGlass}",
+      "name": "Release FocusGlass",
+      "target": "FocusGlass",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release FocusGlass"
+    }
+  ]
+}
