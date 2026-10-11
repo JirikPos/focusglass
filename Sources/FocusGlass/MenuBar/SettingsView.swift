@@ -160,6 +160,8 @@ struct SettingsView: View {
             .padding(.bottom, 10)
             .glassPanel()
 
+            NotionSettingsCard()
+
             AboutCard()
         }
         .onAppear(perform: refreshLaunchState)

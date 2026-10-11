@@ -16,6 +16,9 @@ final class AppModel {
     let calendar = CalendarService()
     let clipboard = ClipboardHistory()
     @ObservationIgnored let spectrum = AudioSpectrum()
+    let habits: HabitsService
+    @ObservationIgnored private var reviewTimer: Timer?
+    @ObservationIgnored private let forcedReview = ForcedReviewController()
     private(set) var quote = Quotes.random()
 
     @ObservationIgnored private let overlay = OverlayController()
@@ -35,6 +38,7 @@ final class AppModel {
         self.stats = StatsStore(settings: settings)
         self.distractionGuard = DistractionGuard(settings: settings)
         self.suggester = FocusSuggester(settings: settings)
+        self.habits = HabitsService(settings: settings)
 
         timer.onEyeBreak = { [weak self] in self?.startEyeBreak() }
         timer.onPhaseChange = { [weak self] ended, manual in
@@ -79,6 +83,12 @@ final class AppModel {
                 self.notch.expandForPreview()
             }
             self.suggester.evaluate()
+            self.scheduleEveningReview()
+            Task { await self.habits.refresh() }
+            // Vývoj: `--review` rovnou ukáže vynucené review.
+            if CommandLine.arguments.contains("--review") {
+                self.forcedReview.present(model: self) { _ in }
+            }
             // Vývoj: `--suggest` rovnou ukáže nabídku focusu.
             if CommandLine.arguments.contains("--suggest") {
                 self.suggestFocus(in: "Code")
@@ -240,6 +250,86 @@ final class AppModel {
             guard let self, self.settings.clipboardEnabled else { return }
             self.notch.open(tab: .clipboard)
         }
+    }
+
+    // MARK: - Večerní review (návyky z Notionu)
+
+    private static let reviewedKey = "eveningReviewDay"
+
+    private var reviewedToday: Bool {
+        UserDefaults.standard.string(forKey: Self.reviewedKey) == Self.today
+    }
+
+    private static var today: String {
+        Date().formatted(.iso8601.year().month().day())
+    }
+
+    /// Naplánuje večerní review na nastavenou hodinu (jeden časovač, žádné dotazování).
+    func scheduleEveningReview() {
+        reviewTimer?.invalidate()
+        reviewTimer = nil
+        guard settings.eveningReview, habits.isConfigured else { return }
+
+        let calendar = Calendar.current
+        let now = Date()
+        let todayAt = calendar.date(bySettingHour: settings.reviewHour, minute: 0, second: 0, of: now) ?? now
+        // Už je po hodině review a dnes ještě neproběhlo (Mac byl zavřený / spal) → zeptej se hned.
+        // Vynucené review platí až do půlnoci, běžná otázka jen do 23:00.
+        let stillToday = settings.forceReview || calendar.component(.hour, from: now) < 23
+        if todayAt <= now, !reviewedToday, stillToday {
+            return scheduleReviewPrompt(after: 10)
+        }
+        let next = todayAt > now ? todayAt : (calendar.date(byAdding: .day, value: 1, to: todayAt) ?? todayAt)
+        scheduleReviewPrompt(after: next.timeIntervalSince(now))
+    }
+
+    private func scheduleReviewPrompt(after delay: TimeInterval) {
+        reviewTimer?.invalidate()
+        let timer = Timer(timeInterval: max(1, delay), repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.promptEveningReview() }
+        }
+        timer.tolerance = 30
+        RunLoop.main.add(timer, forMode: .common)
+        reviewTimer = timer
+    }
+
+    private func promptEveningReview() {
+        guard settings.eveningReview, habits.isConfigured, !reviewedToday else { return scheduleEveningReview() }
+        if settings.forceReview { return presentForcedReview() }
+        Task {
+            await habits.refresh(force: true)
+            let done = habits.doneCount
+            let total = habits.habits.count
+            playSound("Glass")
+            notch.showPrompt(NotchState.Prompt(
+                symbol: "checklist",
+                title: "Večerní review",
+                detail: "Návyky dnes \(done)/\(total) · focus \(stats.today.focus.hoursMinutes) · \(stats.verdict)",
+                primaryTitle: "Otevřít",
+                primary: { [weak self] in self?.openReview() },
+                secondaryTitle: "Za 30 min",
+                secondary: { [weak self] in self?.scheduleReviewPrompt(after: 30 * 60) }
+            ))
+            // Když se otázka nezobrazí nebo ji ignoruješ, zeptá se znovu za 30 minut.
+            scheduleReviewPrompt(after: 30 * 60)
+        }
+    }
+
+    /// Přes celou obrazovku; nepustí, dokud review nevyplníš (nebo nouzový únik).
+    func presentForcedReview() {
+        reviewTimer?.invalidate()
+        playSound("Glass")
+        forcedReview.present(model: self) { [weak self] _ in
+            guard let self else { return }
+            UserDefaults.standard.set(Self.today, forKey: Self.reviewedKey)
+            self.scheduleEveningReview()
+        }
+    }
+
+    func openReview() {
+        UserDefaults.standard.set(Self.today, forKey: Self.reviewedKey)
+        notch.open(tab: .habits)
+        scheduleEveningReview()
     }
 
     private func playSound(_ name: String) {

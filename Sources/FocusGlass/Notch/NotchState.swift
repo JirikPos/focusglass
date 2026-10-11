@@ -82,7 +82,7 @@ final class NotchState {
     static let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.84)
     static let closeAnimation = Animation.spring(response: 0.34, dampingFraction: 0.9)
 
-    static let expandedWidth: CGFloat = 440
+    static let expandedWidth: CGFloat = 480
     static let alertBodyHeight: CGFloat = 52
     static let intentBodyHeight: CGFloat = 96
     static let promptBodyHeight: CGFloat = 56
@@ -134,7 +134,7 @@ final class NotchState {
     }
 
     var expandedSize: CGSize {
-        CGSize(width: max(Self.expandedWidth, notchSize.width + 250),
+        CGSize(width: max(Self.expandedWidth, notchSize.width + 290),
                height: notchSize.height + Self.expandedBodyHeight)
     }
 

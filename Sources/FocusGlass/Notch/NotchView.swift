@@ -9,6 +9,7 @@ enum NotchTab: CaseIterable, Identifiable {
     case media
     case shelf
     case clipboard
+    case habits
 
     var id: Self { self }
 
@@ -18,6 +19,7 @@ enum NotchTab: CaseIterable, Identifiable {
         case .media: "music.note"
         case .shelf: "tray"
         case .clipboard: "doc.on.clipboard"
+        case .habits: "checklist"
         }
     }
 
@@ -27,6 +29,7 @@ enum NotchTab: CaseIterable, Identifiable {
         case .media: "Hudba"
         case .shelf: "Odkladiště"
         case .clipboard: "Schránka"
+        case .habits: "Návyky"
         }
     }
 
@@ -35,6 +38,7 @@ enum NotchTab: CaseIterable, Identifiable {
     func isAvailable(_ settings: AppSettings) -> Bool {
         switch self {
         case .clipboard: settings.clipboardEnabled
+        case .habits: !settings.notionDatabaseID.isEmpty
         default: true
         }
     }
@@ -46,6 +50,7 @@ enum NotchTab: CaseIterable, Identifiable {
         case .media: MediaNotchView()
         case .shelf: ShelfNotchView()
         case .clipboard: ClipboardNotchView()
+        case .habits: HabitsNotchView()
         }
     }
 }
@@ -377,7 +382,7 @@ private struct TabButton: View {
                 .symbolRenderingMode(.monochrome)
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.white.opacity(selected ? 1 : 0.4))
-                .frame(width: 24, height: 18)
+                .frame(width: 22, height: 18)
                 .background(Capsule().fill(.white.opacity(selected ? 0.12 : 0)))
                 .contentShape(Capsule())
         }

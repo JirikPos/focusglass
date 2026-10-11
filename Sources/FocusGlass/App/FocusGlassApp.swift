@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct FocusGlassApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = AppModel()
 
     var body: some Scene {
@@ -12,6 +13,20 @@ struct FocusGlassApp: App {
             MenuBarLabel(model: model)
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+/// Během vynuceného večerního review nejde aplikaci ukončit (⌘Q, menu).
+/// Odhlášení, restart a vypnutí Macu se neblokují.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let reason = NSAppleEventManager.shared().currentAppleEvent?
+            .attributeDescriptor(forKeyword: AEKeyword(kAEQuitReason))?.enumCodeValue
+        let systemQuit = [kAELogOut, kAEReallyLogOut, kAEShowRestartDialog, kAERestart,
+                          kAEShowShutdownDialog, kAEShutDown].map { OSType($0) }
+        if let reason, systemQuit.contains(reason) { return .terminateNow }
+        let reviewActive = MainActor.assumeIsolated { ForcedReviewController.isActive }
+        return reviewActive ? .terminateCancel : .terminateNow
     }
 }
 

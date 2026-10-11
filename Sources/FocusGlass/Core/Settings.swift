@@ -43,6 +43,10 @@ final class AppSettings {
         static let blockedSites = "blockedSites"
         static let askReason = "askReasonOnBlock"
         static let suggestFocus = "suggestFocus"
+        static let notionDatabase = "notionDatabaseID"
+        static let eveningReview = "eveningReview"
+        static let reviewHour = "eveningReviewHour"
+        static let forceReview = "forceEveningReview"
         static let workApps = "workApps"
         static let allowMinutes = "allowMinutes"
         static let dailyGoal = "dailyGoalHours"
@@ -77,6 +81,12 @@ final class AppSettings {
     /// Nabídnout spuštění focusu, když pracuješ v pracovní aplikaci a focus neběží.
     var suggestFocus: Bool { didSet { defaults.set(suggestFocus, forKey: Key.suggestFocus) } }
     var workApps: String { didSet { defaults.set(workApps, forKey: Key.workApps) } }
+    /// Databáze návyků v Notionu (řádek = den). Klíč integrace je v Klíčence.
+    var notionDatabaseID: String { didSet { defaults.set(notionDatabaseID, forKey: Key.notionDatabase) } }
+    var eveningReview: Bool { didSet { defaults.set(eveningReview, forKey: Key.eveningReview) } }
+    var reviewHour: Int { didSet { defaults.set(reviewHour, forKey: Key.reviewHour) } }
+    /// Večerní review přes celou obrazovku, nejde zavřít bez vyplnění.
+    var forceReview: Bool { didSet { defaults.set(forceReview, forKey: Key.forceReview) } }
     static let allowOptions = [5, 10, 15]
     var dailyGoalHours: Int { didSet { defaults.set(dailyGoalHours, forKey: Key.dailyGoal) } }
     var autoDND: Bool { didSet { defaults.set(autoDND, forKey: Key.autoDND) } }
@@ -103,6 +113,9 @@ final class AppSettings {
             Key.allowMinutes: 10,
             Key.suggestFocus: true,
             Key.workApps: "Code, Cursor, Xcode, ClickUp, Figma, Notion",
+            Key.eveningReview: true,
+            Key.reviewHour: 18,
+            Key.forceReview: false,
             Key.dailyGoal: 4,
             Key.autoDND: false,
             Key.calendar: false,
@@ -131,6 +144,10 @@ final class AppSettings {
         allowMinutes = defaults.integer(forKey: Key.allowMinutes)
         suggestFocus = defaults.bool(forKey: Key.suggestFocus)
         workApps = defaults.string(forKey: Key.workApps) ?? ""
+        notionDatabaseID = defaults.string(forKey: Key.notionDatabase) ?? ""
+        eveningReview = defaults.bool(forKey: Key.eveningReview)
+        reviewHour = defaults.integer(forKey: Key.reviewHour)
+        forceReview = defaults.bool(forKey: Key.forceReview)
         dailyGoalHours = max(1, defaults.integer(forKey: Key.dailyGoal))
         autoDND = defaults.bool(forKey: Key.autoDND)
         calendarEnabled = defaults.bool(forKey: Key.calendar)
