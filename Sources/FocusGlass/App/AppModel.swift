@@ -19,6 +19,7 @@ final class AppModel {
     let habits: HabitsService
     let clickUp: ClickUpService
     let session = WorkSession()
+    let stayAwake = StayAwake()
     @ObservationIgnored private var taskPoll: Timer?
     @ObservationIgnored private lazy var screenshotWatcher = FolderWatcher(kind: .screenshots) { [weak self] url in
         self?.fileArrived(url)
@@ -503,12 +504,29 @@ final class AppModel {
     // MARK: - Screenshoty, stahování, schůzky, baterie, žrouti výkonu
 
     private func setUpSystemExtras() {
+        stayAwake.resetOnLaunch()
+        stayAwake.onError = { [weak self] message in
+            self?.notch.showAlert(title: "Zůstat vzhůru", detail: message)
+        }
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.stayAwake.restoreOnQuit() }
+        }
+
         power.onPluggedIn = { [weak self] state in
             guard let self, self.settings.batteryAlerts else { return }
             self.notch.showBattery(percent: state.percent, charging: true)
         }
         power.onLow = { [weak self] state in
-            guard let self, self.settings.batteryAlerts else { return }
+            guard let self else { return }
+            // Mac v tašce se zavřeným víkem nesmí vybít do nuly.
+            if self.stayAwake.isOn {
+                self.stayAwake.set(false)
+                self.notch.showAlert(title: "Spánek vrácen", detail: "Baterie \(state.percent) %")
+                return
+            }
+            guard self.settings.batteryAlerts else { return }
             self.playSound("Tink")
             self.notch.showAlert(title: "Baterie \(state.percent) %", detail: "Připoj nabíječku")
         }

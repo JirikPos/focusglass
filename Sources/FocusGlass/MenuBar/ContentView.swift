@@ -96,6 +96,7 @@ private struct TimerPanel: View {
             }
 
             EyeCard()
+            StayAwakeCard()
             StatsCard()
             QuoteView()
 
@@ -173,6 +174,38 @@ private struct EyeCard: View {
             Button("Pauza teď", action: model.startEyeBreak)
                 .buttonStyle(GlassPillButtonStyle(size: 11))
                 .help("Pozastaví časovač a spustí minutové cvičení očí")
+        }
+        .padding(10)
+        .glassPanel(radius: 18)
+    }
+}
+
+private struct StayAwakeCard: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let awake = model.stayAwake
+        HStack(spacing: 12) {
+            Image(systemName: awake.isOn ? "moon.zzz.fill" : "moon.zzz")
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(awake.isOn ? 1 : 0.7))
+                .frame(width: 30, height: 30)
+                .background(Circle().fill(.white.opacity(awake.isOn ? 0.16 : 0.06)))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Nespat při zavřeném víku")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(awake.isOn ? "Zapnuto – Mac nezaspí" : "Vypnuto")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.45))
+            }
+            Spacer(minLength: 0)
+            Toggle("", isOn: Binding(get: { awake.isOn }, set: { awake.set($0) }))
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .tint(Color(white: 0.55))
+                .labelsHidden()
+                .disabled(awake.isBusy)
+                .help("Agenti poběží dál i po zavření víka. Vypne se při ukončení aplikace a při baterii pod 20 %.")
         }
         .padding(10)
         .glassPanel(radius: 18)
