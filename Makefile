@@ -3,7 +3,7 @@ APP      := build/$(APP_NAME).app
 INSTALLED := /Applications/$(APP_NAME).app
 
 .DEFAULT_GOAL := help
-.PHONY: help build app install run stop restart dev clean uninstall icon preview notch cert
+.PHONY: help build app dmg install run stop restart dev clean uninstall icon preview notch cert
 
 help: ## Zobrazí tuto nápovědu
 	@grep -E '^[a-z]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  \033[36mmake %-10s\033[0m %s\n", $$1, $$2}'
@@ -13,6 +13,9 @@ build: ## Zkompiluje (debug) a ukáže chyby
 
 app: ## Sestaví build/FocusGlass.app (release)
 	./scripts/build-app.sh
+
+dmg: ## Vytvoří dist/FocusGlass.dmg k rozeslání
+	./scripts/make-dmg.sh
 
 install: ## Sestaví, nainstaluje do /Applications a spustí
 	./scripts/build-app.sh --install
@@ -30,7 +33,7 @@ dev: app ## Sestaví a spustí lokální build bez instalace
 	open "$(APP)"
 
 clean: ## Smaže build artefakty
-	rm -rf .build build
+	rm -rf .build build dist
 
 uninstall: stop ## Odebere aplikaci z /Applications
 	rm -rf "$(INSTALLED)"

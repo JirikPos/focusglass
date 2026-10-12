@@ -8,8 +8,14 @@ cd "$(dirname "$0")/.."
 APP_NAME="FocusGlass"
 APP="build/${APP_NAME}.app"
 
-swift build -c release
-BIN="$(swift build -c release --show-bin-path)/${APP_NAME}"
+# UNIVERSAL=1 → binárka pro Apple Silicon i Intel (pro DMG, který půjde na cizí Macy)
+ARCH_FLAGS=()
+if [[ "${UNIVERSAL:-}" == "1" ]]; then
+    ARCH_FLAGS=(--arch arm64 --arch x86_64)
+fi
+
+swift build -c release ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}
+BIN="$(swift build -c release ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"} --show-bin-path)/${APP_NAME}"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
