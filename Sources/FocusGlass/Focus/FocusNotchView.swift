@@ -61,7 +61,7 @@ struct FocusNotchView: View {
         if let minutes = model.calendar.minutesUntilNext, let meeting = model.calendar.next {
             return "Za \(minutes) min: \(meeting.title)"
         }
-        return model.timer.eyeStatus
+        return model.eyeCare.status
     }
 }
 

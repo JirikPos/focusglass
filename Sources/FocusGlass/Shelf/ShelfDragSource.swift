@@ -72,6 +72,8 @@ final class DragSourceView: NSView, NSDraggingSource {
         let item = NSDraggingItem(pasteboardWriter: url as NSURL)
         item.setDraggingFrame(bounds, contents: icon)
         beginDraggingSession(with: [item], event: down, source: self)
+        // Globální monitor tažení z vlastní aplikace nevidí – kolo souborů se to dozví takhle.
+        NotificationCenter.default.post(name: .focusGlassDragBegan, object: [url])
     }
 
     override func menu(for event: NSEvent) -> NSMenu? { makeMenu?() }
@@ -83,7 +85,9 @@ final class DragSourceView: NSView, NSDraggingSource {
     }
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
-        if !operation.isEmpty { onDragCompleted?() }
+        NotificationCenter.default.post(name: .focusGlassDragEnded, object: nil)
+        // Puštění na kolo souborů soubor jen čte – z odkladiště ho neodebírat.
+        if !operation.isEmpty, !WheelDropTracker.consume() { onDragCompleted?() }
     }
 }
 

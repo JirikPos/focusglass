@@ -20,6 +20,8 @@ final class AppModel {
     let clickUp: ClickUpService
     let session = WorkSession()
     let stayAwake = StayAwake()
+    let convert: ConvertService
+    let eyeCare: EyeCare
     @ObservationIgnored private var taskPoll: Timer?
     @ObservationIgnored private lazy var screenshotWatcher = FolderWatcher(kind: .screenshots) { [weak self] url in
         self?.fileArrived(url)
@@ -54,8 +56,19 @@ final class AppModel {
         self.suggester = FocusSuggester(settings: settings)
         self.habits = HabitsService(settings: settings)
         self.clickUp = ClickUpService(settings: settings)
+        self.convert = ConvertService(settings: settings)
+        self.eyeCare = EyeCare(settings: settings)
 
-        timer.onEyeBreak = { [weak self] in self?.startEyeBreak() }
+        // Péče o oči běží pořád – při práci, u filmu i bez pomodora.
+        eyeCare.onEyeBreak = { [weak self] in self?.startEyeBreak() }
+        eyeCare.canInterrupt = { [weak self] in
+            guard let self else { return false }
+            // Během velké pauzy (overlay) ani těsně před ní neruš – pauza oči stejně vynuluje.
+            if self.isEyeBreakActive || self.overlay.isVisible { return false }
+            if self.timer.phase == .work, self.timer.isRunning,
+               self.timer.remaining <= FocusTimer.eyeBreakQuietZone { return false }
+            return true
+        }
         timer.onPhaseChange = { [weak self] ended, manual in
             self?.phaseChanged(ended: ended, manual: manual)
         }
@@ -93,6 +106,7 @@ final class AppModel {
         clipboard.setEnabled(settings.clipboardEnabled)
         registerHotKeys()
         setUpSystemExtras()
+        setUpConvert()
 
         notch = NotchController(model: self)
         // Okna až po dokončení startu aplikace.
@@ -108,6 +122,9 @@ final class AppModel {
             // Vývoj: `--battery` / `--peek` ukážou animaci nabíjení / pasivní odkladiště.
             if CommandLine.arguments.contains("--battery") { self.notch.showBattery(percent: 76, charging: true) }
             if CommandLine.arguments.contains("--peek") { self.notch.peekShelf() }
+            // Vývoj: `--wheel tools ~/foto.png` ukáže kolo souborů.
+            if CommandLine.arguments.contains("--render-wheel") { self.convert.renderWheel(arguments: CommandLine.arguments) }
+            if CommandLine.arguments.contains("--wheel") { self.convert.previewWheel(arguments: CommandLine.arguments) }
             // Vývoj: `--review` rovnou ukáže vynucené review.
             if CommandLine.arguments.contains("--review") {
                 self.forcedReview.present(model: self) { _ in }
@@ -156,6 +173,16 @@ final class AppModel {
         distractionGuard.evaluate()
     }
 
+    func setEyeCareEnabled(_ enabled: Bool) {
+        settings.eyeCareEnabled = enabled
+        eyeCare.setEnabled(enabled)
+    }
+
+    func setConvertEnabled(_ enabled: Bool) {
+        settings.convertEnabled = enabled
+        convert.setEnabled(enabled)
+    }
+
     func setAutoDND(_ enabled: Bool) {
         settings.autoDND = enabled
         updateDoNotDisturb()
@@ -165,7 +192,7 @@ final class AppModel {
         quote = Quotes.random(excluding: quote)
     }
 
-    /// Minuta pro oči: pozastaví pomodoro, ukáže cvičení a pak časovač zase rozběhne.
+    /// Minuta pro oči: pozastaví pomodoro (pokud běží), ukáže cvičení a pak časovač zase rozběhne.
     func startEyeBreak() {
         let resumeAfter = timer.isRunning
         isEyeBreakActive = true
@@ -175,12 +202,12 @@ final class AppModel {
         overlay.present(
             mode: .eyes,
             quote: Quotes.random(),
-            until: Date().addingTimeInterval(FocusTimer.eyeBreakDuration),
+            until: Date().addingTimeInterval(EyeCare.breakDuration),
             onFinish: { [weak self] finished in
                 guard let self else { return }
                 if finished { self.playSound("Pop") }
                 self.isEyeBreakActive = false
-                self.timer.eyesRested()
+                self.eyeCare.reset()
                 if resumeAfter { self.timer.start() }
             }
         )
@@ -205,7 +232,10 @@ final class AppModel {
                 onSkip: { [weak self] in self?.timer.skip() },
                 review: review,
                 // Pauzu zavřeš bez vyhodnocení → zapíše se aspoň čas.
-                onFinish: { _ in review?.save([:]) }
+                onFinish: { [weak self] _ in
+                    review?.save([:])
+                    self?.eyeCare.reset()
+                }
             )
         } else if let review {
             notch.showTaskReview(review)
@@ -406,7 +436,7 @@ final class AppModel {
         notch.showAlert(title: DistractionLines.random(), detail: "\(source) je během focusu zablokovaný")
     }
 
-    /// ⌃⌥ mezerník = notch, ⌃⌥ ↩ = start/pauza, ⌃⌥ V = schránka.
+    /// ⌃⌥ mezerník = notch, ⌃⌥ ↩ = start/pauza, ⌃⌥ V = schránka, ⌃⌥ K = kolo souborů.
     private func registerHotKeys() {
         let modifiers = HotKeys.Modifier.control | HotKeys.Modifier.option
         HotKeys.shared.register(keyCode: 49, modifiers: modifiers) { [weak self] in
@@ -419,6 +449,25 @@ final class AppModel {
             guard let self, self.settings.clipboardEnabled else { return }
             self.notch.open(tab: .clipboard)
         }
+        HotKeys.shared.register(keyCode: 40, modifiers: modifiers) { [weak self] in
+            guard let self, self.settings.convertEnabled else { return }
+            self.convert.openForFinderSelection()
+        }
+    }
+
+    // MARK: - Kolo souborů
+
+    private func setUpConvert() {
+        // Výsledky převodů jdou do odkladiště, odkud je hned vytáhneš kamkoli.
+        convert.onFinished = { [weak self] urls in
+            guard let self, !urls.isEmpty else { return }
+            urls.forEach(self.shelf.add)
+            self.notch.peekShelf()
+        }
+        convert.onMessage = { [weak self] title, detail in
+            self?.notch.showAlert(title: title, detail: detail)
+        }
+        convert.setEnabled(settings.convertEnabled)
     }
 
     // MARK: - Večerní review (návyky z Notionu)

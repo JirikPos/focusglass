@@ -1,3 +1,4 @@
+import ConvertKit
 import Foundation
 import Observation
 
@@ -62,6 +63,11 @@ final class AppSettings {
         static let calendar = "calendarEnabled"
         static let clipboard = "clipboardEnabled"
         static let shelfRemoveAfterDrag = "shelfRemoveAfterDrag"
+        static let convertEnabled = "convertEnabled"
+        static let convertKey = "convertWheelKey"
+        static let toolsKey = "toolsWheelKey"
+        static let actionsKey = "actionsWheelKey"
+        static let convertOutputFolder = "convertOutputFolder"
     }
 
     @ObservationIgnored private let defaults = UserDefaults.standard
@@ -111,6 +117,13 @@ final class AppSettings {
     var calendarEnabled: Bool { didSet { defaults.set(calendarEnabled, forKey: Key.calendar) } }
     var clipboardEnabled: Bool { didSet { defaults.set(clipboardEnabled, forKey: Key.clipboard) } }
     var shelfRemoveAfterDrag: Bool { didSet { defaults.set(shelfRemoveAfterDrag, forKey: Key.shelfRemoveAfterDrag) } }
+    /// Kolo pro převod souborů při tažení.
+    var convertEnabled: Bool { didSet { defaults.set(convertEnabled, forKey: Key.convertEnabled) } }
+    var convertKey: WheelKey { didSet { defaults.set(convertKey.rawValue, forKey: Key.convertKey) } }
+    var toolsKey: WheelKey { didSet { defaults.set(toolsKey.rawValue, forKey: Key.toolsKey) } }
+    var actionsKey: WheelKey { didSet { defaults.set(actionsKey.rawValue, forKey: Key.actionsKey) } }
+    /// Složka pro výsledky převodů; prázdné = vedle originálu.
+    var convertOutputFolder: String { didSet { defaults.set(convertOutputFolder, forKey: Key.convertOutputFolder) } }
 
     init() {
         defaults.register(defaults: [
@@ -147,6 +160,11 @@ final class AppSettings {
             Key.calendar: false,
             Key.clipboard: true,
             Key.shelfRemoveAfterDrag: false,
+            Key.convertEnabled: true,
+            Key.convertKey: WheelKey.shift.rawValue,
+            Key.toolsKey: WheelKey.command.rawValue,
+            Key.actionsKey: WheelKey.control.rawValue,
+            Key.convertOutputFolder: "",
         ])
         profileID = defaults.string(forKey: Key.profile) ?? FocusProfile.default.id
         eyeCareEnabled = defaults.bool(forKey: Key.eyeCare)
@@ -187,5 +205,49 @@ final class AppSettings {
         calendarEnabled = defaults.bool(forKey: Key.calendar)
         clipboardEnabled = defaults.bool(forKey: Key.clipboard)
         shelfRemoveAfterDrag = defaults.bool(forKey: Key.shelfRemoveAfterDrag)
+        convertEnabled = defaults.bool(forKey: Key.convertEnabled)
+        convertKey = WheelKey(rawValue: defaults.string(forKey: Key.convertKey) ?? "") ?? .shift
+        toolsKey = WheelKey(rawValue: defaults.string(forKey: Key.toolsKey) ?? "") ?? .command
+        actionsKey = WheelKey(rawValue: defaults.string(forKey: Key.actionsKey) ?? "") ?? .control
+        convertOutputFolder = defaults.string(forKey: Key.convertOutputFolder) ?? ""
+    }
+
+    // MARK: - Kolo souborů
+
+    func key(for wheel: Wheel) -> WheelKey {
+        switch wheel {
+        case .convert: convertKey
+        case .tools: toolsKey
+        case .actions: actionsKey
+        }
+    }
+
+    /// Nastaví klávesu kola; kolo, které ji mělo dřív, dostane tu uvolněnou (klávesy se nesmí opakovat).
+    func setKey(_ key: WheelKey, for wheel: Wheel) {
+        let previous = self.key(for: wheel)
+        guard previous != key else { return }
+        if let other = Wheel.allCases.first(where: { $0 != wheel && self.key(for: $0) == key }) {
+            assign(previous, to: other)
+        }
+        assign(key, to: wheel)
+    }
+
+    private func assign(_ key: WheelKey, to wheel: Wheel) {
+        switch wheel {
+        case .convert: convertKey = key
+        case .tools: toolsKey = key
+        case .actions: actionsKey = key
+        }
+    }
+
+    /// Kolo pro modifikátor, nebo `nil`, pokud klávesa žádné kolo neotevírá.
+    func wheel(for key: WheelKey) -> Wheel? {
+        Wheel.allCases.first { self.key(for: $0) == key }
+    }
+
+    var convertOutput: OutputPolicy {
+        convertOutputFolder.isEmpty
+            ? OutputPolicy(location: .besideSource)
+            : OutputPolicy(location: .folder(URL(fileURLWithPath: convertOutputFolder, isDirectory: true)))
     }
 }

@@ -9,17 +9,15 @@ enum Phase {
     var title: String { self == .work ? "Soustředění" : "Pauza" }
 }
 
-/// Pomodoro časovač s mikropauzami pro oči (20-20-1) a detekcí nepřítomnosti.
+/// Pomodoro časovač s detekcí nepřítomnosti. Péči o oči řeší nezávisle `EyeCare`.
 ///
 /// Počítá se vůči cílovému `Date`, takže tik slouží jen k překreslení.
 /// Když časovač neběží (a uživatel není „pryč“), neexistuje žádný `Timer` – nulová zátěž CPU.
 @MainActor
 @Observable
 final class FocusTimer {
-    static let eyeInterval: TimeInterval = 20 * 60
-    static let eyeBreakDuration: TimeInterval = 60
-    /// Těsně před velkou pauzou už mikropauzu nevyvoláváme.
-    private static let eyeBreakQuietZone: TimeInterval = 2 * 60
+    /// Těsně před velkou pauzou už mikropauzu pro oči nevyvoláváme.
+    static let eyeBreakQuietZone: TimeInterval = 2 * 60
 
     let settings: AppSettings
 
@@ -28,12 +26,9 @@ final class FocusTimer {
     private(set) var remaining: TimeInterval
     private(set) var isRunning = false
     private(set) var endDate: Date?
-    /// Uplynulý pracovní čas (s), kdy nastane další péče o oči.
-    private(set) var nextEyeBreak: TimeInterval = eyeInterval
     /// Zastaveno automaticky, protože uživatel odešel od počítače.
     private(set) var isAway = false
 
-    @ObservationIgnored var onEyeBreak: (() -> Void)?
     @ObservationIgnored var onPhaseChange: ((_ ended: Phase, _ manual: Bool) -> Void)?
     /// Kolik sekund čisté práce přibylo (záporné = odečíst čas, kdy byl uživatel pryč).
     @ObservationIgnored var onFocusDelta: ((TimeInterval) -> Void)?
@@ -56,13 +51,6 @@ final class FocusTimer {
     var elapsed: TimeInterval { duration - remaining }
     var progress: Double { duration > 0 ? 1 - remaining / duration : 0 }
     var hasStarted: Bool { isRunning || remaining < duration }
-
-    /// Čas do další péče o oči, nebo `nil`, pokud v tomto bloku už žádná nebude.
-    var timeUntilEyeBreak: TimeInterval? {
-        guard phase == .work, settings.eyeCareEnabled,
-              nextEyeBreak < profile.work - Self.eyeBreakQuietZone else { return nil }
-        return max(0, nextEyeBreak - elapsed)
-    }
 
     // MARK: - Ovládání
 
@@ -93,7 +81,6 @@ final class FocusTimer {
         haltTicker()
         phase = .work
         remaining = profile.work
-        nextEyeBreak = Self.eyeInterval
         stateChanged()
     }
 
@@ -104,12 +91,6 @@ final class FocusTimer {
     func setProfile(_ newProfile: FocusProfile) {
         profile = newProfile
         reset()
-    }
-
-    /// Oči si právě odpočinuly – další připomínka až za 20 minut práce.
-    func eyesRested() {
-        guard phase == .work else { return }
-        nextEyeBreak = elapsed + Self.eyeInterval
     }
 
     // MARK: - Interní logika
@@ -126,15 +107,6 @@ final class FocusTimer {
             lastWorkRemaining = remaining
 
             if detectAway() { return }
-
-            if settings.eyeCareEnabled && elapsed >= nextEyeBreak {
-                let late = elapsed - nextEyeBreak
-                repeat { nextEyeBreak += Self.eyeInterval } while nextEyeBreak <= elapsed
-                // Zmeškané připomínky (spánek apod.) nedoháníme.
-                if late < 30 && remaining > Self.eyeBreakQuietZone {
-                    onEyeBreak?()
-                }
-            }
         }
 
         if remaining <= 0 {
@@ -148,7 +120,6 @@ final class FocusTimer {
         haltTicker()
         phase = ended == .work ? .rest : .work
         remaining = duration
-        nextEyeBreak = Self.eyeInterval
 
         // Pauza začíná vždy sama; nový pracovní blok jen ručně nebo s „po pauze pokračovat“.
         if ended == .work || manual || settings.autoContinue {
@@ -197,8 +168,6 @@ final class FocusTimer {
 
     private func checkReturn() {
         guard Self.idleSeconds < 2 else { return }
-        // Při odchodu si oči odpočinuly, další připomínka až za 20 minut.
-        nextEyeBreak = elapsed + Self.eyeInterval
         start()
     }
 
@@ -222,7 +191,6 @@ final class FocusTimer {
             "profile": profile.id,
             "phase": phase == .work ? "work" : "rest",
             "remaining": remaining,
-            "nextEyeBreak": nextEyeBreak,
         ]
         // Běžící blok si pamatuje cílový čas; „pryč od počítače“ se obnoví jako pauza.
         if let endDate, isRunning { state["endDate"] = endDate.timeIntervalSince1970 }
@@ -234,7 +202,6 @@ final class FocusTimer {
               state["profile"] as? String == profile.id,
               let savedRemaining = state["remaining"] as? TimeInterval else { return }
         phase = state["phase"] as? String == "rest" ? .rest : .work
-        nextEyeBreak = state["nextEyeBreak"] as? TimeInterval ?? Self.eyeInterval
 
         if let end = state["endDate"] as? TimeInterval {
             let left = Date(timeIntervalSince1970: end).timeIntervalSinceNow
@@ -242,7 +209,6 @@ final class FocusTimer {
                 // Blok mezitím doběhl (aplikace neběžela) – začni čistě.
                 phase = .work
                 remaining = profile.work
-                nextEyeBreak = Self.eyeInterval
                 return
             }
             remaining = min(left, duration)
@@ -291,14 +257,6 @@ extension FocusTimer {
         if isAway { return "Mimo počítač" }
         if hasStarted && !isRunning { return "Pozastaveno" }
         return phase.title
-    }
-
-    var eyeStatus: String {
-        if isAway { return "Pokračuje, až se vrátíš" }
-        guard settings.eyeCareEnabled else { return "Připomínky vypnuté" }
-        if phase == .rest { return "Oči odpočívají s tebou" }
-        guard let left = timeUntilEyeBreak else { return "Do pauzy už žádná" }
-        return "Další pauza pro oči za \(Int((left / 60).rounded(.up))) min"
     }
 
     /// Symbol aktuálního stavu (lišta, notch).

@@ -48,9 +48,9 @@ struct SettingsView: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 SettingRow(icon: "eye", title: "Péče o oči 20-20-1") {
-                    Toggle("", isOn: $settings.eyeCareEnabled)
+                    Toggle("", isOn: Binding(get: { settings.eyeCareEnabled }, set: model.setEyeCareEnabled))
                 }
-                Caption("Každých 20 minut práce ztmavne obrazovka na 1 minutu cvičení očí. Časovač se mezitím zastaví.")
+                Caption("Každých 20 minut u obrazovky ztmavne displej na 1 minutu cvičení očí – i bez pomodora, třeba u filmu. Uspání, zhasnutí displeje nebo odchod od počítače počítadlo vynuluje.")
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 10)
@@ -154,11 +154,13 @@ struct SettingsView: View {
                 SettingRow(icon: "tray.and.arrow.up", title: "Po vytažení odebrat") {
                     Toggle("", isOn: $settings.shelfRemoveAfterDrag)
                 }
-                Caption("Zkratky: ⌃⌥ mezerník otevře notch · ⌃⌥ ↩ start/pauza · ⌃⌥ V schránka. V otevřeném notchi Esc zavře, mezerník v odkladišti ukáže náhled.")
+                Caption("Zkratky: ⌃⌥ mezerník otevře notch · ⌃⌥ ↩ start/pauza · ⌃⌥ V schránka · ⌃⌥ K kolo souborů. V otevřeném notchi Esc zavře, mezerník v odkladišti ukáže náhled.")
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 10)
             .glassPanel()
+
+            ConvertSettingsCard()
 
             ExtrasSettingsCard()
 

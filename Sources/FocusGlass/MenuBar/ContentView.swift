@@ -166,14 +166,14 @@ private struct EyeCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Péče o oči")
                     .font(.system(size: 12, weight: .semibold))
-                Text(model.timer.eyeStatus)
+                Text(model.eyeCare.status)
                     .font(.system(size: 11))
                     .foregroundStyle(.white.opacity(0.45))
             }
             Spacer(minLength: 0)
             Button("Pauza teď", action: model.startEyeBreak)
                 .buttonStyle(GlassPillButtonStyle(size: 11))
-                .help("Pozastaví časovač a spustí minutové cvičení očí")
+                .help("Spustí minutové cvičení očí (běžící časovač se mezitím zastaví)")
         }
         .padding(10)
         .glassPanel(radius: 18)

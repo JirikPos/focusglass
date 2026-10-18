@@ -29,7 +29,7 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>FocusGlass ovládá přehrávání v Apple Music a Spotify z notche.</string>
+	<string>FocusGlass ovládá přehrávání v Apple Music a Spotify z notche, čte výběr ve Finderu pro kolo souborů a převádí dokumenty přes Pages, Keynote a Numbers.</string>
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>FocusGlass analyzuje přehrávaný zvuk pro vizualizér hudby v notchi. Nic se nenahrává ani neodesílá.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>

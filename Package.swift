@@ -5,6 +5,9 @@ let package = Package(
     name: "FocusGlass",
     platforms: [.macOS(.v14)],
     targets: [
-        .executableTarget(name: "FocusGlass")
+        // Jádro převodů bez UI – testovatelné samostatně.
+        .target(name: "ConvertKit"),
+        .executableTarget(name: "FocusGlass", dependencies: ["ConvertKit"]),
+        .testTarget(name: "ConvertKitTests", dependencies: ["ConvertKit"]),
     ]
 )

@@ -49,6 +49,7 @@ private final class OverlayPanel: NSPanel {
 @MainActor
 final class OverlayController {
     private var panels: [OverlayPanel] = []
+    var isVisible: Bool { !panels.isEmpty }
     private var keyMonitor: Any?
     private var autoClose: Timer?
     private var onFinish: ((_ finished: Bool) -> Void)?
