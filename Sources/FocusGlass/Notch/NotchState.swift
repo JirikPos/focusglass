@@ -55,6 +55,8 @@ final class NotchState {
         case review
         /// Animace nabíjení vedle výřezu (jako na iPhonu).
         case battery
+        /// Průběh převodu souborů vedle výřezu.
+        case job
 
         /// Zůstává otevřené, dokud neodpovíš (myš ho nezavře) a bere klávesnici.
         var isSticky: Bool { self == .intent || self == .tasks || self == .review }
@@ -71,6 +73,11 @@ final class NotchState {
     struct BatteryInfo: Equatable {
         let percent: Int
         let charging: Bool
+    }
+
+    struct JobInfo: Equatable {
+        let progress: Double
+        let count: Int
     }
 
     struct TaskReviewRequest {
@@ -132,6 +139,7 @@ final class NotchState {
     @ObservationIgnored private(set) var intent: IntentRequest?
     @ObservationIgnored private(set) var taskPicker: TaskPickerRequest?
     private(set) var battery: BatteryInfo?
+    private(set) var job: JobInfo?
     /// Otevřeno automaticky (např. nový screenshot) – nebere klávesnici, dokud neklikneš.
     @ObservationIgnored private(set) var passiveExpand = false
     @ObservationIgnored private(set) var taskReview: TaskReviewRequest?
@@ -192,7 +200,7 @@ final class NotchState {
         case .intent: CGSize(width: expandedSize.width, height: notchSize.height + Self.intentBodyHeight)
         case .prompt: CGSize(width: expandedSize.width, height: notchSize.height + Self.promptBodyHeight)
         case .tasks: CGSize(width: expandedSize.width, height: notchSize.height + Self.tasksBodyHeight)
-        case .battery: CGSize(width: notchSize.width + 2 * 86, height: notchSize.height)
+        case .battery, .job: CGSize(width: notchSize.width + 2 * 86, height: notchSize.height)
         case .review:
             CGSize(width: expandedSize.width,
                    height: notchSize.height + 74 + CGFloat(min(taskReview?.items.count ?? 1, 4)) * 30)
@@ -325,7 +333,7 @@ final class NotchState {
     /// Nový soubor v odkladišti: notch se na chvíli otevře na odkladišti, ať ho můžeš rovnou přetáhnout.
     /// Nebere klávesnici (nepřerušíš psaní) a sám se zavře, pokud na něj nenajedeš.
     func peekShelf() {
-        guard mode == .idle || mode == .peek || mode == .alert || mode == .battery else { return }
+        guard mode == .idle || mode == .peek || mode == .alert || mode == .battery || mode == .job else { return }
         pending?.cancel()
         tab = .shelf
         passiveExpand = true
@@ -340,6 +348,19 @@ final class NotchState {
         battery = info
         setMode(.battery)
         schedule(.idle, after: 3.5)
+    }
+
+    /// Průběh převodů; `nil` = vše doběhlo. Neruší rozbalený notch ani otázky –
+    /// ukáže se, až bude notch zase v klidu.
+    func showJob(_ info: JobInfo?) {
+        job = info
+        guard info != nil else {
+            if mode == .job { setMode(.idle) }
+            return
+        }
+        guard mode == .idle || mode == .peek || mode == .battery else { return }
+        pending?.cancel()
+        setMode(.job)
     }
 
     /// Krátké upozornění, které se samo schová (pokud na něm nemáš myš).
@@ -361,8 +382,8 @@ final class NotchState {
     private func setHovering(_ hovering: Bool) {
         guard hovering != isHovering else { return }
         isHovering = hovering
-        // Otázky (důvod, úkoly, vyhodnocení) se myší nezavírají.
-        guard !mode.isSticky else { return }
+        // Otázky (důvod, úkoly, vyhodnocení) a průběh převodu se myší nezavírají.
+        guard !mode.isSticky, mode != .job else { return }
         // Otázka s tlačítky: na myši čeká, po odjetí dá ještě chvíli na rozmyšlenou.
         if mode == .prompt {
             hovering ? pending?.cancel() : schedule(.idle, after: 8)

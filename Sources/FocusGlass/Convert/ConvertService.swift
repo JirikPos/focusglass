@@ -19,6 +19,8 @@ final class ConvertService {
     @ObservationIgnored let actions = FileActionPerformer()
     /// Hotové soubory (do odkladiště).
     @ObservationIgnored var onFinished: (([URL]) -> Void)?
+    /// Souhrnný průběh běžících úloh (0…1, počet); `nil` = nic neběží.
+    @ObservationIgnored var onProgress: ((progress: Double, count: Int)?) -> Void = { _ in }
     /// Krátká zpráva v notchi.
     @ObservationIgnored var onMessage: ((_ title: String, _ detail: String) -> Void)?
 
@@ -197,6 +199,16 @@ final class ConvertService {
         jobs.removeAll { $0.state.isDone }
     }
 
+    private func reportProgress() {
+        let active = jobs.filter { !$0.state.isDone }
+        guard !active.isEmpty else { return onProgress(nil) }
+        let total = active.reduce(0.0) { sum, job in
+            if case .running(let progress) = job.state { return sum + progress }
+            return sum
+        }
+        onProgress((total / Double(active.count), active.count))
+    }
+
     private func apply(_ snapshot: JobSnapshot) {
         if let index = jobs.firstIndex(where: { $0.id == snapshot.id }) {
             jobs[index] = snapshot
@@ -204,6 +216,7 @@ final class ConvertService {
             jobs.insert(snapshot, at: 0)
             if jobs.count > Self.historyLimit { jobs.removeLast(jobs.count - Self.historyLimit) }
         }
+        reportProgress()
         switch snapshot.state {
         case .finished(let urls):
             onFinished?(urls)

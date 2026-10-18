@@ -464,6 +464,9 @@ final class AppModel {
             urls.forEach(self.shelf.add)
             self.notch.peekShelf()
         }
+        convert.onProgress = { [weak self] progress in
+            self?.notch.showJob(progress.map { NotchState.JobInfo(progress: $0.progress, count: $0.count) })
+        }
         convert.onMessage = { [weak self] title, detail in
             self?.notch.showAlert(title: title, detail: detail)
         }

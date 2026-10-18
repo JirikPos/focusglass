@@ -26,7 +26,9 @@ public struct OutputPolicy: Sendable, Hashable {
 
     /// Navržené jméno: „foto (PNG).png“, „foto (komprese).jpg“, bez štítku „foto.png“.
     public static func fileName(for source: URL, tag: String?, extension ext: String) -> String {
-        let base = source.deletingPathExtension().lastPathComponent
+        var base = source.deletingPathExtension().lastPathComponent
+        // „archiv.tar.gz“ → „archiv“
+        if base.lowercased().hasSuffix(".tar") { base = String(base.dropLast(4)) }
         let name = tag.map { "\(base) (\($0))" } ?? base
         return ext.isEmpty ? name : "\(name).\(ext)"
     }
@@ -60,25 +62,39 @@ public struct OutputPolicy: Sendable, Hashable {
         fileManager: FileManager = .default,
         _ body: (URL) async throws -> Void
     ) async throws -> URL {
-        let directory = destination.deletingLastPathComponent()
+        try await withScratch(near: destination.deletingLastPathComponent(), fileManager: fileManager) { scratch in
+            let temporary = scratch.appendingPathComponent(destination.lastPathComponent)
+            try await body(temporary)
+            return try place(temporary, as: destination, fileManager: fileManager)
+        }
+    }
+
+    /// Prázdná dočasná složka na stejném svazku jako `directory` (přesun je pak okamžitý a atomický).
+    /// Po skončení `body` zmizí i se vším, co se z ní nepřesunulo.
+    public static func withScratch<T>(
+        near directory: URL,
+        fileManager: FileManager = .default,
+        _ body: (URL) async throws -> T
+    ) async throws -> T {
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let scratch = try fileManager.url(
             for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: directory, create: true
         )
         defer { try? fileManager.removeItem(at: scratch) }
-        let temporary = scratch.appendingPathComponent(destination.lastPathComponent)
+        return try await body(scratch)
+    }
 
-        try await body(temporary)
+    /// Přesune hotový soubor nebo složku na první volné jméno odvozené z `destination`.
+    public static func place(_ produced: URL, as destination: URL, fileManager: FileManager = .default) throws -> URL {
         try Task.checkCancellation()
-        guard fileManager.fileExists(atPath: temporary.path) else {
+        guard fileManager.fileExists(atPath: produced.path) else {
             throw ConvertError.writeFailed(destination.lastPathComponent)
         }
-
         // Mezi výběrem jména a přesunem může jméno někdo obsadit – zkusit další.
         for _ in 0..<50 {
             let target = unique(destination, fileManager: fileManager)
             do {
-                try fileManager.moveItem(at: temporary, to: target)
+                try fileManager.moveItem(at: produced, to: target)
                 return target
             } catch CocoaError.fileWriteFileExists {
                 continue

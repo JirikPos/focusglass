@@ -105,6 +105,8 @@ final class NotchController {
 
     func peekShelf() { state?.peekShelf() }
 
+    func showJob(_ info: NotchState.JobInfo?) { state?.showJob(info) }
+
     func showBattery(percent: Int, charging: Bool) {
         state?.showBattery(NotchState.BatteryInfo(percent: percent, charging: charging))
     }

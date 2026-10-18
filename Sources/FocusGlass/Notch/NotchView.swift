@@ -127,6 +127,12 @@ struct NotchView: View {
                         .frame(width: notch.size(for: .battery).width, height: notch.size(for: .battery).height)
                         .transition(.opacity.animation(.easeOut(duration: 0.2).delay(0.1)))
                 }
+            case .job:
+                if let job = notch.job {
+                    JobNotch(info: job)
+                        .frame(width: notch.size(for: .job).width, height: notch.size(for: .job).height)
+                        .transition(.opacity.animation(.easeOut(duration: 0.2).delay(0.1)))
+                }
             case .tasks:
                 if let request = notch.taskPicker {
                     VStack(spacing: 0) {
@@ -227,6 +233,39 @@ private struct CompactNotch: View {
 // MARK: - Nabíjení
 
 /// Bílá baterie vlevo, která se „naplní“ na aktuální stav, a procenta vpravo.
+/// Průběh převodu souborů: kroužek vlevo, procenta (a počet úloh) vpravo.
+private struct JobNotch: View {
+    let info: NotchState.JobInfo
+    @Environment(NotchState.self) private var notch
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ProgressRing(progress: info.progress, lineWidth: 2)
+                .frame(width: 15, height: 15)
+                .animation(.easeOut(duration: 0.25), value: info.progress)
+                .frame(maxWidth: .infinity)
+
+            Spacer(minLength: notch.notchSize.width)
+
+            HStack(spacing: 4) {
+                Text("\(Int((info.progress * 100).rounded())) %")
+                    .font(.system(size: 12, weight: .medium))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                if info.count > 1 {
+                    Text("×\(info.count)")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .frame(height: notch.notchSize.height)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Převod \(Int(info.progress * 100)) procent")
+    }
+}
+
 private struct BatteryNotch: View {
     let info: NotchState.BatteryInfo
     @Environment(NotchState.self) private var notch
