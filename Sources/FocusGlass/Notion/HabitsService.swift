@@ -46,7 +46,7 @@ final class HabitsService {
 
     // MARK: - Připojení
 
-    var hasToken: Bool { Keychain.get(Self.tokenKey) != nil }
+    var hasToken: Bool { Keychain.contains(Self.tokenKey) }
     var isConfigured: Bool { hasToken && !settings.notionDatabaseID.isEmpty }
     var doneCount: Int { habits.filter(\.done).count }
     var databaseTitle: String? { database?.title ?? databases.first { $0.id == settings.notionDatabaseID }?.title }

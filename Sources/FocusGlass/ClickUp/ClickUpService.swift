@@ -32,7 +32,7 @@ final class ClickUpService {
         if isConfigured { status = .ready }
     }
 
-    var hasToken: Bool { Keychain.get(Self.tokenKey) != nil }
+    var hasToken: Bool { Keychain.contains(Self.tokenKey) }
     var isConfigured: Bool { hasToken && !settings.clickUpTeamID.isEmpty && settings.clickUpUserID != 0 }
     var client: ClickUpClient? { Keychain.get(Self.tokenKey).map(ClickUpClient.init(token:)) }
 
