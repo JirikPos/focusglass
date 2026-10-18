@@ -27,6 +27,36 @@ public enum Requirement: Hashable, Sendable {
 }
 
 /// Jak náročná operace je – těžké (video, audio) běží po jedné, lehké souběžně.
+public extension Requirement {
+    static func isMet(_ requirement: Requirement, tools: ToolLocator) -> Bool {
+        switch requirement {
+        case .tool(let tool): tools.isAvailable(tool)
+        case .app(let bundleID, _): NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) != nil
+        }
+    }
+
+    /// Co doinstalovat.
+    var hint: String {
+        switch self {
+        case .tool(let tool): tool.installHint
+        case .app(_, let name): "Nainstaluj \(name) z App Storu"
+        }
+    }
+
+    var missingError: ConvertError {
+        switch self {
+        case .tool(let tool): .toolMissing(tool)
+        case .app(_, let name): .appMissing(name)
+        }
+    }
+
+    static let pages = Requirement.app(bundleID: "com.apple.iWork.Pages", name: "Pages")
+    static let keynote = Requirement.app(bundleID: "com.apple.iWork.Keynote", name: "Keynote")
+    static let numbers = Requirement.app(bundleID: "com.apple.iWork.Numbers", name: "Numbers")
+    static let ffmpeg = Requirement.tool(.ffmpeg)
+    static let libreOffice = Requirement.tool(.soffice)
+}
+
 public enum Lane: Sendable, Hashable {
     case light
     case heavy
@@ -115,6 +145,10 @@ public protocol FileOperation: Sendable {
     var isApproximate: Bool { get }
 
     func accepts(_ selection: Selection) -> Bool
+    /// Jde to pro tenhle výběr spustit (nástroje, aplikace)?
+    func availability(for selection: Selection, tools: ToolLocator) -> Availability
+    /// Bude výsledek pro tenhle výběr přibližný?
+    func isApproximate(for selection: Selection) -> Bool
     /// Vrací URL vytvořených souborů. Při zrušení hází `CancellationError`.
     func run(_ context: OperationContext) async throws -> [URL]
 }
@@ -125,17 +159,13 @@ public extension FileOperation {
     var requirements: [Requirement] { [] }
     var isApproximate: Bool { false }
 
-    func availability(tools: ToolLocator) -> Availability {
-        for requirement in requirements {
-            switch requirement {
-            case .tool(let tool):
-                if !tools.isAvailable(tool) { return .missing(hint: tool.installHint) }
-            case .app(let bundleID, let name):
-                if NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) == nil {
-                    return .missing(hint: "Nainstaluj \(name) z App Storu")
-                }
-            }
+    func availability(for selection: Selection, tools: ToolLocator) -> Availability {
+        for requirement in requirements where !Requirement.isMet(requirement, tools: tools) {
+            return .missing(hint: requirement.hint)
         }
         return .available
     }
+
+    func isApproximate(for selection: Selection) -> Bool { isApproximate }
+
 }

@@ -9,6 +9,7 @@ public enum ConvertError: LocalizedError, Sendable, Equatable {
     case unreadable(String)
     case writeFailed(String)
     case invalidOutput(String)
+    case noAudio(String)
     case cancelled
 
     public var errorDescription: String? {
@@ -20,6 +21,7 @@ public enum ConvertError: LocalizedError, Sendable, Equatable {
         case .unreadable(let name): "Soubor „\(name)“ nejde přečíst"
         case .writeFailed(let name): "Výsledek „\(name)“ nejde uložit"
         case .invalidOutput(let name): "Výsledek „\(name)“ je poškozený"
+        case .noAudio(let name): "„\(name)“ nemá zvukovou stopu"
         case .cancelled: "Zrušeno"
         }
     }

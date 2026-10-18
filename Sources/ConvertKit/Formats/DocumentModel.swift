@@ -133,6 +133,56 @@ public enum DocumentModel {
         return result
     }
 
+    // MARK: NSAttributedString (pro DOCX, RTF)
+
+    /// Bloky → formátovaný text se skutečnými nadpisy a seznamy (Word je pozná).
+    public static func attributed(_ blocks: [DocBlock]) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        let bodyFont = NSFont(name: "Helvetica Neue", size: 12) ?? .systemFont(ofSize: 12)
+        for block in blocks {
+            let style = NSMutableParagraphStyle()
+            style.paragraphSpacing = 8
+            var base: [NSAttributedString.Key: Any] = [.font: bodyFont, .paragraphStyle: style]
+            var prefix = ""
+            switch block.kind {
+            case .heading(let level):
+                let size: CGFloat = level == 1 ? 22 : level == 2 ? 17 : 14
+                base[.font] = NSFont(name: "Helvetica Neue Bold", size: size) ?? .boldSystemFont(ofSize: size)
+                style.paragraphSpacingBefore = level == 1 ? 14 : 10
+            case .listItem(let ordered, let level, let number):
+                let list = NSTextList(markerFormat: ordered ? .decimal : .disc, options: 0)
+                style.textLists = [list]
+                style.headIndent = CGFloat(level + 1) * 18
+                style.firstLineHeadIndent = CGFloat(level) * 18
+                style.paragraphSpacing = 2
+                prefix = "\t" + (ordered ? "\(number)." : "•") + "\t"
+            case .code:
+                base[.font] = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+            case .rule, .paragraph:
+                break
+            }
+            if !prefix.isEmpty { result.append(NSAttributedString(string: prefix, attributes: base)) }
+            if block.kind == .rule {
+                result.append(NSAttributedString(string: "———", attributes: base))
+            }
+            for run in block.runs {
+                var attributes = base
+                var font = (base[.font] as? NSFont) ?? bodyFont
+                var traits: NSFontDescriptor.SymbolicTraits = font.fontDescriptor.symbolicTraits
+                if run.bold { traits.insert(.bold) }
+                if run.italic { traits.insert(.italic) }
+                if run.monospace { font = .monospacedSystemFont(ofSize: font.pointSize, weight: .regular) }
+                font = NSFont(descriptor: font.fontDescriptor.withSymbolicTraits(traits), size: font.pointSize) ?? font
+                attributes[.font] = font
+                if run.strike { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
+                if let link = run.link { attributes[.link] = link }
+                result.append(NSAttributedString(string: run.text, attributes: attributes))
+            }
+            result.append(NSAttributedString(string: "\n", attributes: base))
+        }
+        return result
+    }
+
     // MARK: XHTML
 
     /// Tělo XHTML (bez `<html>`), dobře formované – pro EPUB.

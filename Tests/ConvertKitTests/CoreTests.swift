@@ -210,7 +210,7 @@ import Testing
     @Test func missingToolIsReported() {
         let op = FakeOperation(id: "x", wheel: .convert, kind: .video, requirements: [.tool(.ffmpeg)])
         let locator = ToolLocator(searchPaths: [], environment: ["FG_NO_FFMPEG": "1", "PATH": ""])
-        #expect(op.availability(tools: locator) == .missing(hint: "brew install ffmpeg"))
+        #expect(op.availability(for: Selection(urls: []), tools: locator) == .missing(hint: "brew install ffmpeg"))
     }
 
     @Test func queueRunsAndReportsFinished() async throws {

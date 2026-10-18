@@ -76,87 +76,57 @@ public enum PDFBackend {
         return job.file
     }
 
-    /// Markdown: nadpisy podle velikosti písma, odstavce podle mezer mezi řádky.
-    public static let markdown: Converter = { job in
-        let document = try document(job.source)
-        var lines: [StyledLine] = []
-        for index in 0..<document.pageCount {
-            try Task.checkCancellation()
-            if let page = document.page(at: index) { lines += styledLines(page) }
-            job.progress(Double(index + 1) / Double(max(document.pageCount, 1)))
+    /// Markdown, DOCX, EPUB z rozvržení textu (odstavce, nadpisy, odrážky; skeny přes OCR).
+    public static let document: Converter = { job in
+        let pdf = try document(job.source)
+        let pages = try PDFLayout.pages(of: pdf) { job.progress($0 * 0.8) }
+        let blocks = PDFLayout.blocks(pages)
+        guard !blocks.isEmpty else { throw ConvertError.unreadable("\(job.source.lastPathComponent) (bez textu)") }
+        let title = job.source.deletingPathExtension().lastPathComponent
+        switch job.target.id {
+        case "md":
+            try DocumentModel.markdown(blocks).write(to: job.file, atomically: false, encoding: .utf8)
+        case "epub":
+            let body = DocumentModel.xhtmlBody(blocks)
+            try await EPUB.write(title: title, chapters: EPUB.chapters(fromBody: body, fallbackTitle: title),
+                                 to: job.file, workDirectory: job.scratch)
+        default:
+            try await TextBackend.write(DocumentModel.attributed(blocks), title: title, to: job.file,
+                                        format: job.target, workDirectory: job.scratch)
         }
-        try MarkdownFromLayout.render(lines).write(to: job.file, atomically: false, encoding: .utf8)
+        job.progress(1)
         return job.file
     }
 
-    /// Řádek textu s velikostí písma a tučností (pro odhad nadpisů).
-    struct StyledLine {
-        let text: String
-        let size: CGFloat
-        let bold: Bool
-        let gapBefore: CGFloat
+    /// Tabulky do XLSX: list na stránku, sloupce podle zarovnání textu.
+    public static let spreadsheet: Converter = { job in
+        let pdf = try document(job.source)
+        let pages = try PDFLayout.pages(of: pdf) { job.progress($0 * 0.8) }
+        let sheets = pages.enumerated().map { index, page in
+            Spreadsheet.Sheet(name: pages.count == 1 ? "List1" : "Strana \(index + 1)", rows: PDFLayout.table(page))
+        }
+        try await Spreadsheet.writeXLSX(sheets, to: job.file, workDirectory: job.scratch)
+        job.progress(1)
+        return job.file
     }
 
-    static func styledLines(_ page: PDFPage) -> [StyledLine] {
-        guard let attributed = page.attributedString else { return [] }
-        let string = attributed.string as NSString
-        var result: [StyledLine] = []
-        var previousBottom: CGFloat?
-        string.enumerateSubstrings(in: NSRange(location: 0, length: string.length), options: .byLines) { line, range, _, _ in
-            guard let line, !line.trimmingCharacters(in: .whitespaces).isEmpty else {
-                previousBottom = nil
-                return
-            }
-            var size: CGFloat = 0
-            var bold = true
-            attributed.enumerateAttribute(.font, in: range) { value, _, _ in
-                guard let font = value as? NSFont else { return }
-                size = max(size, font.pointSize)
-                if !font.fontDescriptor.symbolicTraits.contains(.bold) { bold = false }
-            }
-            let bounds = page.selection(for: range)?.bounds(for: page) ?? .zero
-            let gap = previousBottom.map { max(0, $0 - bounds.maxY) } ?? size
-            previousBottom = bounds.minY
-            result.append(StyledLine(text: line, size: size, bold: bold, gapBefore: gap))
+    /// Prezentace: snímek na stránku (obrázek ve 200 DPI, vzhled 1:1).
+    public static let presentation: Converter = { job in
+        let pdf = try document(job.source)
+        guard let first = pdf.page(at: 0) else { throw ConvertError.unreadable(job.source.lastPathComponent) }
+        var slides: [PPTX.Slide] = []
+        for index in 0..<pdf.pageCount {
+            try Task.checkCancellation()
+            guard let page = pdf.page(at: index) else { continue }
+            let image = job.temporary("snimek\(index + 1).jpg")
+            try ImageBackend.write(try render(page, dpi: 200), to: image, format: .jpg, quality: 0.88)
+            slides.append(PPTX.Slide(image: image))
+            job.progress(Double(index + 1) / Double(pdf.pageCount) * 0.9)
         }
-        return result
-    }
-}
-
-/// Z řádků s velikostí písma složí Markdown.
-enum MarkdownFromLayout {
-    static func render(_ lines: [PDFBackend.StyledLine]) -> String {
-        guard !lines.isEmpty else { return "" }
-        // Tělo textu = velikost písma s nejvíc znaky (medián řádků by u krátkého dokumentu chytil nadpisy).
-        var weights: [CGFloat: Int] = [:]
-        for line in lines { weights[line.size.rounded(), default: 0] += line.text.count }
-        let body = weights.max { $0.value < $1.value }?.key ?? 12
-        var output: [String] = []
-        var paragraph: [String] = []
-
-        func flush() {
-            if !paragraph.isEmpty { output.append(paragraph.joined(separator: " ")) }
-            paragraph.removeAll()
-        }
-
-        for line in lines {
-            let text = line.text.trimmingCharacters(in: .whitespaces)
-            let short = text.count < 120
-            if short, line.size >= body * 1.6 {
-                flush(); output.append("# \(text)")
-            } else if short, line.size >= body * 1.25 {
-                flush(); output.append("## \(text)")
-            } else if short, line.bold, line.size >= body, text.count < 80 {
-                flush(); output.append("### \(text)")
-            } else if text.hasPrefix("•") || text.hasPrefix("◦") || text.hasPrefix("▪") {
-                flush(); output.append("- " + text.dropFirst().trimmingCharacters(in: .whitespaces))
-            } else {
-                // Velká mezera nad řádkem = nový odstavec.
-                if line.gapBefore > body * 0.9 { flush() }
-                paragraph.append(text)
-            }
-        }
-        flush()
-        return output.joined(separator: "\n\n") + "\n"
+        let bounds = first.bounds(for: .cropBox)
+        let size = first.rotation % 180 == 0 ? bounds.size : CGSize(width: bounds.height, height: bounds.width)
+        try await PPTX.write(slides: slides, size: size, to: job.file, workDirectory: job.scratch)
+        job.progress(1)
+        return job.file
     }
 }

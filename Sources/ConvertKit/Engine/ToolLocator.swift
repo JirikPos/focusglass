@@ -65,6 +65,12 @@ public final class ToolLocator: @unchecked Sendable {
 
     public func isAvailable(_ tool: ExternalTool) -> Bool { url(for: tool) != nil }
 
+    /// Cesta k nástroji, nebo chyba s nápovědou k instalaci.
+    public func require(_ tool: ExternalTool) throws -> URL {
+        guard let url = url(for: tool) else { throw ConvertError.toolMissing(tool) }
+        return url
+    }
+
     public func refresh() {
         lock.lock()
         cache.removeAll()

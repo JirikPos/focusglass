@@ -164,10 +164,10 @@ final class ConvertService {
         if wheel == .actions { return FileAction.allCases.map(\.item) }
         return registry.operations(for: selection, wheel: wheel).map { operation in
             var hint: String?
-            if case .missing(let missing) = operation.availability(tools: tools) { hint = missing }
+            if case .missing(let missing) = operation.availability(for: selection, tools: tools) { hint = missing }
             return WheelItem(
                 id: operation.id, title: operation.title, symbol: operation.symbol,
-                target: .operation(operation.id), hint: hint, approximate: operation.isApproximate
+                target: .operation(operation.id), hint: hint, approximate: operation.isApproximate(for: selection)
             )
         }
     }
