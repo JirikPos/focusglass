@@ -27,13 +27,13 @@ jako bundle, takže se v Docku objeví ikona a *Spustit po přihlášení* nefun
 
 **Plnohodnotný Xcode projekt:**
 
-1. Xcode → *File → New → Project → macOS → App*. Název `FocusGlass`, Interface *SwiftUI*, Language *Swift*.
-2. Smaž vygenerované `FocusGlassApp.swift` a `ContentView.swift` a přetáhni do projektu všechny soubory
-   ze `Sources/FocusGlass/`.
-3. Target → *General* → *Minimum Deployments*: **macOS 14.0**.
-4. Target → *Info* → přidej klíč **Application is agent (UIElement)** = `YES` (`LSUIElement`).
-5. Target → *Signing & Capabilities*: App Sandbox může zůstat zapnutý, aplikace nic dalšího nepotřebuje.
-6. ⌘R.
+1. [ ] Xcode → *File → New → Project → macOS → App*. Název `FocusGlass`, Interface *SwiftUI*, Language *Swift*.
+2. [ ] Smaž vygenerované `FocusGlassApp.swift` a `ContentView.swift` a přetáhni do projektu všechny soubory
+    ze `Sources/FocusGlass/`.
+3. [ ] Target → *General* → *Minimum Deployments*: **macOS 14.0**.
+4. [ ] Target → *Info* → přidej klíč **Application is agent (UIElement)** = `YES` (`LSUIElement`).
+5. [ ] Target → *Signing & Capabilities*: App Sandbox může zůstat zapnutý, aplikace nic dalšího nepotřebuje.
+6. [ ] ⌘R.
 
 ## Architektura
 
@@ -54,6 +54,7 @@ Sources/FocusGlass/
 ```
 
 **Jak přidat novou funkci do notche:**
+
 1. Nová složka, např. `Sources/FocusGlass/Calendar/`, se službou (`@Observable` třída) a view panelu.
 2. Službu přidej jako vlastnost do `AppModel`.
 3. V `Notch/NotchView.swift` přidej `case` do `NotchTab` (ikona, název, view). Hotovo: tlačítko panelu
