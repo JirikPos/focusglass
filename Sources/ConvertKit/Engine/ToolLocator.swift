@@ -43,15 +43,39 @@ public final class ToolLocator: @unchecked Sendable {
     private var cache: [ExternalTool: URL?] = [:]
     private let searchPaths: [String]
     private let environment: [String: String]
+    /// Nástroje přibalené v aplikaci (`Contents/Resources/bin`) mají přednost před systémovými.
+    private let bundledDirectory: String?
 
     public init(
         searchPaths: [String] = ["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin", "/usr/bin"],
-        environment: [String: String] = ProcessInfo.processInfo.environment
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        bundledDirectory: URL? = Bundle.main.resourceURL?.appendingPathComponent("bin", isDirectory: true)
     ) {
         let fromPath = (environment["PATH"] ?? "").split(separator: ":").map(String.init)
         var seen = Set<String>()
         self.searchPaths = (searchPaths + fromPath).filter { seen.insert($0).inserted }
         self.environment = environment
+        self.bundledDirectory = bundledDirectory.flatMap(Self.usable)?.path
+    }
+
+    /// Přibalené nástroje se použijí jen na architektuře, pro kterou vznikly (`.arch` ve složce);
+    /// univerzální aplikace na jiném Macu sáhne po nástrojích ze systému.
+    static func usable(_ directory: URL) -> URL? {
+        guard let marker = try? String(contentsOf: directory.appendingPathComponent(".arch"), encoding: .utf8) else { return directory }
+        #if arch(arm64)
+        let current = "arm64"
+        #elseif arch(x86_64)
+        let current = "x86_64"
+        #else
+        let current = ""
+        #endif
+        return marker.trimmingCharacters(in: .whitespacesAndNewlines) == current ? directory : nil
+    }
+
+    /// Je nástroj součástí aplikace (a ne nainstalovaný v systému)?
+    public func isBundled(_ tool: ExternalTool) -> Bool {
+        guard let bundledDirectory, let url = url(for: tool) else { return false }
+        return url.path.hasPrefix(bundledDirectory + "/")
     }
 
     public func url(for tool: ExternalTool) -> URL? {
@@ -80,7 +104,8 @@ public final class ToolLocator: @unchecked Sendable {
     private func locate(_ tool: ExternalTool) -> URL? {
         // `FG_NO_FFMPEG=1` apod. – vývoj a testy chování bez nástroje.
         if environment["FG_NO_\(tool.rawValue.uppercased())"] == "1" { return nil }
-        let candidates = tool.knownLocations + searchPaths.map { "\($0)/\(tool.rawValue)" }
+        let bundled = bundledDirectory.map { ["\($0)/\(tool.rawValue)"] } ?? []
+        let candidates = bundled + tool.knownLocations + searchPaths.map { "\($0)/\(tool.rawValue)" }
         let fm = FileManager.default
         return candidates.first { fm.isExecutableFile(atPath: $0) }.map { URL(fileURLWithPath: $0) }
     }

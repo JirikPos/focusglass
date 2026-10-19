@@ -141,7 +141,10 @@ private struct ToolStatus: View {
                         .foregroundStyle(found ? .green.opacity(0.8) : .white.opacity(0.3))
                     Text(tool.displayName).font(.system(size: 11))
                     Spacer()
-                    if !found {
+                    if found, tools.isBundled(tool) {
+                        Text("součást aplikace")
+                            .font(.system(size: 9.5)).foregroundStyle(.white.opacity(0.35))
+                    } else if !found {
                         Text(tool.installHint)
                             .font(.system(size: 9.5, design: .monospaced))
                             .foregroundStyle(.white.opacity(0.4))

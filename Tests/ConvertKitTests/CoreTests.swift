@@ -194,6 +194,56 @@ import Testing
     }
 }
 
+@Suite struct BundledToolTests {
+    private func fake(_ name: String, in directory: URL) throws -> URL {
+        let url = directory.appendingPathComponent(name)
+        try Data("#!/bin/sh\n".utf8).write(to: url)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+        return url
+    }
+
+    @Test func bundledToolBeatsSystemOne() throws {
+        let bundled = try TempDir()
+        let system = try TempDir()
+        let inApp = try fake("ffmpeg", in: bundled.url)
+        _ = try fake("ffmpeg", in: system.url)
+        let locator = ToolLocator(searchPaths: [system.url.path], environment: ["PATH": ""], bundledDirectory: bundled.url)
+        #expect(locator.url(for: .ffmpeg)?.path == inApp.path)
+        #expect(locator.isBundled(.ffmpeg))
+    }
+
+    @Test func fallsBackToSystemWhenNotBundled() throws {
+        let bundled = try TempDir() // prázdná složka bin
+        let system = try TempDir()
+        let installed = try fake("pandoc", in: system.url)
+        let locator = ToolLocator(searchPaths: [system.url.path], environment: ["PATH": ""], bundledDirectory: bundled.url)
+        #expect(locator.url(for: .pandoc)?.path == installed.path)
+        #expect(!locator.isBundled(.pandoc))
+        #expect(!locator.isBundled(.ffmpeg), "nenalezený nástroj není přibalený")
+    }
+
+    @Test func bundleForOtherArchitectureIsIgnored() throws {
+        let bundled = try TempDir()
+        _ = try fake("ffmpeg", in: bundled.url)
+        try "z80".write(to: bundled.url.appendingPathComponent(".arch"), atomically: true, encoding: .utf8)
+        let locator = ToolLocator(searchPaths: [], environment: ["PATH": ""], bundledDirectory: bundled.url)
+        #expect(locator.url(for: .ffmpeg) == nil)
+        #if arch(arm64)
+        try "arm64\n".write(to: bundled.url.appendingPathComponent(".arch"), atomically: true, encoding: .utf8)
+        #else
+        try "x86_64\n".write(to: bundled.url.appendingPathComponent(".arch"), atomically: true, encoding: .utf8)
+        #endif
+        #expect(ToolLocator(searchPaths: [], environment: ["PATH": ""], bundledDirectory: bundled.url).isBundled(.ffmpeg))
+    }
+
+    @Test func disabledToolIgnoresBundle() throws {
+        let bundled = try TempDir()
+        _ = try fake("ffmpeg", in: bundled.url)
+        let locator = ToolLocator(searchPaths: [], environment: ["PATH": "", "FG_NO_FFMPEG": "1"], bundledDirectory: bundled.url)
+        #expect(locator.url(for: .ffmpeg) == nil)
+    }
+}
+
 @Suite struct RegistryAndQueueTests {
     @Test func registryFiltersByWheelAndSelection() {
         let registry = OperationRegistry([

@@ -24,6 +24,11 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 strip -x "$APP/Contents/MacOS/${APP_NAME}"
 
+# BUNDLE_TOOLS=1 → přibalit ffmpeg a spol. (pro DMG); jinak se použijí nástroje ze systému.
+if [[ "${BUNDLE_TOOLS:-}" == "1" ]]; then
+    ./scripts/bundle-tools.sh "$APP"
+fi
+
 # Stálý podpis (scripts/make-cert.sh), aby si macOS pamatoval oprávnění mezi sestaveními.
 # Bez certifikátu ad-hoc podpis – funguje, ale Kalendář/Automatizace se po každém buildu ptají znovu.
 IDENTITY="FocusGlass Dev"

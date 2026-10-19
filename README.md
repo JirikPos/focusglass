@@ -65,8 +65,9 @@ obličejů a citlivého textu, vystřižení, PDF a koláž z více obrázků), 
 heslo, vodoznak, krytí textu, obrázky, OCR), video a zvuk (komprese, střih, ořez, rychlost, normalizace hlasitosti…),
 titulky, tabulky, dokumenty a e-knihy. Úplný přehled a architektura: [docs/CONVERT.md](docs/CONVERT.md).
 
-Většina běží jen na tom, co je v macOS. Pro MKV, WebM, MP3, OGG a všechny nástroje videa a zvuku potřebuješ
-`brew install ffmpeg`; WebP a AVIF `brew install webp libavif`. Co chybí, je v kole šedé a řekne ti, co doinstalovat.
+Instalační DMG obsahuje vše potřebné (ffmpeg pro video, zvuk, MKV, WebM a spol., WebP a AVIF), nic se neinstaluje zvlášť.
+Při vývoji bez přibalení (`make dev`) si je doinstaluj: `brew install ffmpeg webp libavif`. Co chybí, je v kole šedé
+a řekne ti, co doinstalovat.
 
 ### Hlídač rozptýlení
 Během focusu tě notch upozorní, když otevřeš zakázaný web nebo aplikaci (Instagram, TikTok, Steam…).

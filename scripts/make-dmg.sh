@@ -10,7 +10,7 @@ DMG="dist/${APP_NAME}.dmg"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
-UNIVERSAL=1 ./scripts/build-app.sh
+BUNDLE_TOOLS="${BUNDLE_TOOLS:-1}" UNIVERSAL=1 ./scripts/build-app.sh
 
 # Složka s aplikací, odkazem na Applications a návodem pro první spuštění.
 cp -R "build/${APP_NAME}.app" "$STAGE/"

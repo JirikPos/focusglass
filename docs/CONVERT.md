@@ -49,10 +49,17 @@ Pravidla, která drží všechny nástroje:
 - dlouhé úlohy hlásí průběh a reagují na zrušení (`Task.checkCancellation()`);
 - chyby jsou `ConvertError` s větou pro uživatele, technický detail jde jen do logu.
 
-## Volitelné nástroje
+## Externí nástroje
 
-Aplikace funguje i bez nich, jen nabídne méně. Nainstalují se přes Homebrew a najdou se automaticky
-(`ToolLocator`); lístek, kterému nástroj chybí, je šedý a ve středu kola řekne, co doinstalovat.
+DMG (`make dmg`) obsahuje ffmpeg, ffprobe, cwebp a avifenc i s knihovnami v `Contents/Resources/bin` a `lib`
+(skript `scripts/bundle-tools.sh`, volá ho `build-app.sh` při `BUNDLE_TOOLS=1`). Uživatel nemusí nic instalovat.
+Programy se berou z Homebrew (`brew install ffmpeg webp libavif`) a `scripts/relocate_libs.py` přepíše cesty
+knihoven, aby fungovaly bez něj. Přibalené binárky jsou jen pro architekturu build stroje (soubor `.arch`);
+na jiné se aplikace spoléhá na nástroje ze systému. Licenční upozornění (ffmpeg je GPL) se přibalí jako
+`THIRD-PARTY.txt` – při dalším šíření k tomu přilož i zdroj nebo odkaz na něj.
+
+Bez přibalení (např. `make dev`) se nástroje hledají v systému (`ToolLocator`); lístek, kterému nástroj chybí,
+je šedý a ve středu kola řekne, co doinstalovat.
 
 | Nástroj | Pro co | Instalace |
 |---|---|---|
