@@ -85,6 +85,16 @@ struct GlassPillButtonStyle: ButtonStyle {
 /// Hlavní akce v kapsli: bílá, černý text.
 struct PrimaryPillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
+        PrimaryPillLabel(configuration: configuration)
+    }
+}
+
+/// Zakázané tlačítko je znatelně ztlumené (`isEnabled` je dostupné jen uvnitř pohledu).
+private struct PrimaryPillLabel: View {
+    let configuration: ButtonStyleConfiguration
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
         configuration.label
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(.black)
@@ -92,6 +102,7 @@ struct PrimaryPillButtonStyle: ButtonStyle {
             .padding(.vertical, 5.5)
             .background(Capsule().fill(.white.opacity(configuration.isPressed ? 0.75 : 0.95)))
             .contentShape(Capsule())
+            .opacity(isEnabled ? 1 : 0.3)
     }
 }
 

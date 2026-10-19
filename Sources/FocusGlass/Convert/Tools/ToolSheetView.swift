@@ -33,6 +33,8 @@ struct ToolSheetView: View {
         switch model.tool.editor {
         case .crop: CropEditor(model: model)
         case .annotate: AnnotateEditor(model: model)
+        case .pages: PagesEditor(model: model)
+        case .trim: previewPane
         case .redact: RedactEditor(model: model)
         case .form, .order: previewPane
         }

@@ -6,9 +6,12 @@ import PDFKit
 public enum PDFBackend {
     public static let renderDPI: CGFloat = 300
 
-    static func document(_ url: URL) throws -> PDFDocument {
+    static func document(_ url: URL, password: String? = nil) throws -> PDFDocument {
         guard let document = PDFDocument(url: url) else { throw ConvertError.unreadable(url.lastPathComponent) }
-        if document.isLocked { throw ConvertError.unreadable("\(url.lastPathComponent) (zamčené heslem)") }
+        if document.isLocked {
+            guard let password, !password.isEmpty else { throw ConvertError.passwordRequired(url.lastPathComponent) }
+            guard document.unlock(withPassword: password) else { throw ConvertError.wrongPassword(url.lastPathComponent) }
+        }
         return document
     }
 

@@ -64,6 +64,11 @@ private struct OptionRow: View {
                 TextField(placeholder, text: Binding(get: { model.string(option.id) }, set: { model.set(option.id, .string($0)) }))
                     .textFieldStyle(.roundedBorder)
                     .controlSize(.small)
+            case .secret(let placeholder):
+                Text(option.title)
+                SecureField(placeholder, text: Binding(get: { model.string(option.id) }, set: { model.set(option.id, .string($0)) }))
+                    .textFieldStyle(.roundedBorder)
+                    .controlSize(.small)
             case .number(let range, let unit):
                 HStack {
                     Text(option.title)

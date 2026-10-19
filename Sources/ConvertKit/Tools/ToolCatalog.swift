@@ -3,7 +3,21 @@ import Foundation
 /// Nástroje kola ⌘ podle druhu souboru. Pořadí = pořadí lístků.
 public enum ToolCatalog {
     public static func all() -> [any FileOperation] {
-        images()
+        images() + pdfs()
+    }
+
+    static func pdfs() -> [Tool] {
+        [
+            PDFCompress.tool,
+            PDFPages.tool,
+            PDFSplit.tool,
+            PDFMerge.tool,
+            PDFPassword.tool,
+            PDFWatermark.tool,
+            PDFRedactText.tool,
+            PDFExtractImages.tool,
+            PDFOCR.tool,
+        ]
     }
 
     static func images() -> [Tool] {

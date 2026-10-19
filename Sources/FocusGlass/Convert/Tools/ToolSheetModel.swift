@@ -1,6 +1,7 @@
 import AppKit
 import ConvertKit
 import Observation
+import PDFKit
 
 /// Stav okna nástroje: hodnoty voleb, náhled a data z editorů (ořez, anotace, krytí, pořadí).
 @MainActor
@@ -46,6 +47,13 @@ final class ToolSheetModel {
     var showRedactResult = false { didSet { schedulePreview() } }
     var order: [URL]
 
+    // Stránky PDF
+    var pageSpecs: [PDFPages.PageSpec] = []
+    var selectedPages: Set<UUID> = []
+    @ObservationIgnored private(set) var pdfDocument: PDFDocument?
+    @ObservationIgnored private var thumbnails: [String: NSImage] = [:]
+    private var pageUndo: [[PDFPages.PageSpec]] = []
+
     @ObservationIgnored var onApply: ((Tool, Selection, [String: OptionValue]) -> Void)?
     @ObservationIgnored var onClose: (() -> Void)?
     @ObservationIgnored private var previewTask: Task<Void, Never>?
@@ -59,7 +67,12 @@ final class ToolSheetModel {
         self.selection = selection
         self.values = tool.defaults
         self.order = selection.urls
-        loadSource()
+        if tool.editor == .pages {
+            pdfDocument = PDFDocument(url: selection.urls[0])
+            pageSpecs = (0..<(pdfDocument?.pageCount ?? 0)).map { PDFPages.PageSpec(source: $0) }
+        } else {
+            loadSource()
+        }
     }
 
     deinit {
@@ -124,6 +137,10 @@ final class ToolSheetModel {
             if selection.count == 1, let data = try? encoder.encode(active) { result["regions"] = .data(data) }
         case .order:
             if let data = try? encoder.encode(order.map(\.path)) { result["order"] = .data(data) }
+        case .pages:
+            if let data = try? encoder.encode(pageSpecs) { result["pages"] = .data(data) }
+        case .trim:
+            break
         case .form:
             break
         }
@@ -133,6 +150,8 @@ final class ToolSheetModel {
     var canApply: Bool {
         switch tool.editor {
         case .annotate: !annotations.isEmpty
+        case .pages:
+            !pageSpecs.isEmpty && pageSpecs != (0..<(pdfDocument?.pageCount ?? 0)).map { PDFPages.PageSpec(id: pageSpecs.indices.contains($0) ? pageSpecs[$0].id : UUID(), source: $0) }
         case .redact: selection.count > 1 || regions.contains { enabledRegions.contains($0.id) }
         default: true
         }
@@ -334,5 +353,77 @@ final class ToolSheetModel {
     func moveOrder(from source: IndexSet, to destination: Int) {
         order.move(fromOffsets: source, toOffset: destination)
         schedulePreview()
+    }
+}
+
+// MARK: - Stránky PDF
+
+extension ToolSheetModel {
+    /// Miniatura stránky (s přidaným otočením); drží se v paměti.
+    func thumbnail(for spec: PDFPages.PageSpec) -> NSImage? {
+        let key = "\(spec.source)-\(spec.rotation)"
+        if let cached = thumbnails[key] { return cached }
+        guard let page = pdfDocument?.page(at: spec.source)?.copy() as? PDFPage else { return nil }
+        page.rotation = (page.rotation + spec.rotation) % 360
+        let image = page.thumbnail(of: CGSize(width: 260, height: 340), for: .cropBox)
+        thumbnails[key] = image
+        return image
+    }
+
+    private func commitPages(_ updated: [PDFPages.PageSpec]) {
+        guard updated != pageSpecs else { return }
+        pageUndo.append(pageSpecs)
+        pageSpecs = updated
+    }
+
+    var canUndoPages: Bool { !pageUndo.isEmpty }
+
+    func undoPages() {
+        guard let previous = pageUndo.popLast() else { return }
+        pageSpecs = previous
+        selectedPages = selectedPages.filter { id in previous.contains { $0.id == id } }
+    }
+
+    func togglePage(_ id: UUID, extend: Bool) {
+        if extend {
+            if selectedPages.contains(id) { selectedPages.remove(id) } else { selectedPages.insert(id) }
+        } else {
+            selectedPages = selectedPages == [id] ? [] : [id]
+        }
+    }
+
+    func selectAllPages() { selectedPages = Set(pageSpecs.map(\.id)) }
+
+    func rotateSelectedPages(by degrees: Int) {
+        guard !selectedPages.isEmpty else { return }
+        commitPages(pageSpecs.map { spec in
+            guard selectedPages.contains(spec.id) else { return spec }
+            return PDFPages.PageSpec(id: spec.id, source: spec.source, rotation: spec.rotation + degrees)
+        })
+    }
+
+    func deleteSelectedPages() {
+        guard !selectedPages.isEmpty else { return }
+        commitPages(pageSpecs.filter { !selectedPages.contains($0.id) })
+        selectedPages = []
+    }
+
+    func duplicateSelectedPages() {
+        guard !selectedPages.isEmpty else { return }
+        var result: [PDFPages.PageSpec] = []
+        for spec in pageSpecs {
+            result.append(spec)
+            if selectedPages.contains(spec.id) { result.append(PDFPages.PageSpec(source: spec.source, rotation: spec.rotation)) }
+        }
+        commitPages(result)
+    }
+
+    /// Přesune stránku `id` před stránku `target` (nebo na konec, když je `target` `nil`).
+    func movePage(_ id: UUID, before target: UUID?) {
+        guard let from = pageSpecs.firstIndex(where: { $0.id == id }), id != target else { return }
+        var updated = pageSpecs
+        let item = updated.remove(at: from)
+        if let target, let to = updated.firstIndex(where: { $0.id == target }) { updated.insert(item, at: to) } else { updated.append(item) }
+        commitPages(updated)
     }
 }

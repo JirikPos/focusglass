@@ -10,6 +10,8 @@ public enum ConvertError: LocalizedError, Sendable, Equatable {
     case writeFailed(String)
     case invalidOutput(String)
     case noAudio(String)
+    case passwordRequired(String)
+    case wrongPassword(String)
     case cancelled
 
     public var errorDescription: String? {
@@ -22,6 +24,8 @@ public enum ConvertError: LocalizedError, Sendable, Equatable {
         case .writeFailed(let name): "Výsledek „\(name)“ nejde uložit"
         case .invalidOutput(let name): "Výsledek „\(name)“ je poškozený"
         case .noAudio(let name): "„\(name)“ nemá zvukovou stopu"
+        case .passwordRequired(let name): "„\(name)“ je zamčené heslem"
+        case .wrongPassword(let name): "Heslo k „\(name)“ není správné"
         case .cancelled: "Zrušeno"
         }
     }

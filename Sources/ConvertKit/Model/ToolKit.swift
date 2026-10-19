@@ -45,6 +45,8 @@ public struct ToolOption: Sendable, Identifiable {
         case slider(range: ClosedRange<Double>, step: Double, unit: String)
         case choice([Choice])
         case text(placeholder: String)
+        /// Heslo: zadává se skrytě a neukládá se.
+        case secret(placeholder: String)
         case number(range: ClosedRange<Int>, unit: String)
         case color
         case file(extensions: [String])
@@ -114,6 +116,11 @@ public struct ToolOption: Sendable, Identifiable {
                    visibleWhen: visibleWhen, help: help)
     }
 
+    public static func secret(_ id: String, _ title: String, placeholder: String = "", visibleWhen: Condition? = nil,
+                              help: String? = nil) -> ToolOption {
+        ToolOption(id, title, .secret(placeholder: placeholder), default: .string(""), visibleWhen: visibleWhen, help: help)
+    }
+
     public static func file(_ id: String, _ title: String, extensions: [String],
                             visibleWhen: Condition? = nil) -> ToolOption {
         ToolOption(id, title, .file(extensions: extensions), default: .string(""), visibleWhen: visibleWhen)
@@ -126,6 +133,10 @@ public enum ToolEditor: Sendable, Hashable {
     case form
     /// Tažení rámečku nad obrázkem (ořez).
     case crop
+    /// Mřížka stránek PDF: řazení, otáčení, mazání, duplikace.
+    case pages
+    /// Časová osa se střihem (video, zvuk).
+    case trim
     /// Kreslení šipek, tvarů, textu a popisků.
     case annotate
     /// Oblasti ke krytí: automaticky nalezené + ruční.
