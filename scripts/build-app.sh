@@ -48,6 +48,15 @@ if [[ "${1:-}" == "--install" ]]; then
     pkill -x "$APP_NAME" 2>/dev/null || true
     rm -rf "/Applications/${APP_NAME}.app"
     cp -R "$APP" /Applications/
-    open "/Applications/${APP_NAME}.app"
+    # LaunchServices si čerstvě nakopírovanou aplikaci musí nejdřív zaregistrovat, jinak `open` vrací
+    # chybu -600 (proces nenalezen). Stará místa (build/, připojené DMG) se odregistrují.
+    LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+    "$LSREGISTER" -u "$APP" 2>/dev/null || true
+    "$LSREGISTER" -f "/Applications/${APP_NAME}.app"
+    for attempt in 1 2 3; do
+        if open "/Applications/${APP_NAME}.app"; then break; fi
+        [[ $attempt == 3 ]] && { echo "! Spuštění selhalo – zkus make run"; exit 1; }
+        sleep 1
+    done
     echo "✓ Nainstalováno do /Applications a spuštěno"
 fi
