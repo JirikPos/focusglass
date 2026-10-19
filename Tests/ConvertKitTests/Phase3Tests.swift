@@ -190,7 +190,7 @@ private let hasFFmpeg = ToolLocator.shared.isAvailable(.ffmpeg) && ToolLocator.s
         #expect(count("/a.mp4") == 7)
         #expect(count("/a.wav") == 7)
         #expect(count("/a.pdf") == 9)   // stránkování
-        #expect(count("/a.docx") == 6)
+        #expect(count("/a.docx") == 7)   // + PDF
         #expect(count("/a.pptx") == 3)
     }
 }

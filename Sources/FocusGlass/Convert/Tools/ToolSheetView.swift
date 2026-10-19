@@ -50,6 +50,8 @@ struct ToolSheetView: View {
                     .aspectRatio(contentMode: .fit)
                     .padding(18)
                     .shadow(color: .black.opacity(0.5), radius: 14, y: 6)
+            } else if model.sourceLoaded {
+                SourcePlaceholder(kind: model.selection.kinds.first ?? .other, name: model.selection.summary)
             } else {
                 ProgressView().controlSize(.small)
             }
@@ -167,4 +169,44 @@ func fittedRect(imageSize: CGSize, in area: CGSize, padding: CGFloat = 18) -> CG
     let scale = min(available.width / imageSize.width, available.height / imageSize.height)
     let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
     return CGRect(x: (area.width - size.width) / 2, y: (area.height - size.height) / 2, width: size.width, height: size.height)
+}
+
+/// Náhrada za náhled u souborů, které se nedají zobrazit (dokumenty, tabulky, archivy…).
+private struct SourcePlaceholder: View {
+    let kind: FileKind
+    let name: String
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: kind.symbol)
+                .font(.system(size: 56, weight: .light))
+                .foregroundStyle(.white.opacity(0.35))
+            Text(name)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white.opacity(0.6))
+                .lineLimit(2).multilineTextAlignment(.center)
+            Text("Náhled není k dispozici – nastav volby vpravo.")
+                .font(.system(size: 11)).foregroundStyle(.white.opacity(0.35))
+        }
+        .padding(40)
+    }
+}
+
+extension FileKind {
+    var symbol: String {
+        switch self {
+        case .image: "photo"
+        case .video: "film"
+        case .audio: "waveform"
+        case .pdf: "doc.richtext"
+        case .document: "doc.text"
+        case .slides: "rectangle.on.rectangle"
+        case .spreadsheet: "tablecells"
+        case .epub: "book.closed"
+        case .subtitle: "captions.bubble"
+        case .archive: "archivebox"
+        case .folder: "folder"
+        case .other: "doc"
+        }
+    }
 }

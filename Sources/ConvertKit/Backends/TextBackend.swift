@@ -121,6 +121,53 @@ public enum TextBackend {
         throw ConvertError.unreadable(url.lastPathComponent)
     }
 
+    // MARK: PDF
+
+    /// Text s formátováním → stránkované PDF (A4, okraje 2 cm). Musí běžet na hlavním vlákně (AppKit).
+    @MainActor
+    public static func pdfData(from attributed: NSAttributedString, pageSize: CGSize = CGSize(width: 595.28, height: 841.89),
+                               margin: CGFloat = 56) -> Data? {
+        // Text bez vlastní barvy by v tmavém vzhledu vyšel bílý na bílém.
+        let text = NSMutableAttributedString(attributedString: attributed)
+        text.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: text.length)) { value, range, _ in
+            if value == nil { text.addAttribute(.foregroundColor, value: NSColor.black, range: range) }
+        }
+        let printInfo = NSPrintInfo()
+        printInfo.paperSize = pageSize
+        printInfo.topMargin = margin; printInfo.bottomMargin = margin
+        printInfo.leftMargin = margin; printInfo.rightMargin = margin
+        printInfo.horizontalPagination = .fit
+        printInfo.verticalPagination = .automatic
+        printInfo.isHorizontallyCentered = false
+        printInfo.isVerticallyCentered = false
+
+        let width = pageSize.width - 2 * margin
+        let view = NSTextView(frame: NSRect(x: 0, y: 0, width: width, height: pageSize.height))
+        view.appearance = NSAppearance(named: .aqua)
+        view.drawsBackground = true
+        view.backgroundColor = .white
+        view.isVerticallyResizable = true
+        view.isHorizontallyResizable = false
+        view.textContainerInset = .zero
+        view.textContainer?.containerSize = NSSize(width: width, height: .greatestFiniteMagnitude)
+        view.textContainer?.widthTracksTextView = true
+        view.textStorage?.setAttributedString(text)
+        if let container = view.textContainer, let layout = view.layoutManager {
+            layout.ensureLayout(for: container)
+            view.frame.size.height = max(layout.usedRect(for: container).height, 1)
+        }
+        // Stránkování umí jen tisková cesta (uložení do souboru), `pdfOperation` by dal jednu dlouhou stránku.
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("fg-text-\(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: file) }
+        printInfo.jobDisposition = .save
+        printInfo.dictionary()[NSPrintInfo.AttributeKey.jobSavingURL] = file
+        let operation = NSPrintOperation(view: view, printInfo: printInfo)
+        operation.showsPrintPanel = false
+        operation.showsProgressPanel = false
+        guard operation.run() else { return nil }
+        return try? Data(contentsOf: file)
+    }
+
     // MARK: Zápis
 
     public static func write(_ attributed: NSAttributedString, title: String, to url: URL, format: Format,
@@ -131,6 +178,10 @@ public enum TextBackend {
             try attributed.string.write(to: url, atomically: false, encoding: .utf8)
         case "md":
             try DocumentModel.markdown(DocumentModel.blocks(from: attributed)).write(to: url, atomically: false, encoding: .utf8)
+        case "pdf":
+            let wrapped = Unchecked(attributed)
+            guard let data = await MainActor.run(body: { pdfData(from: wrapped.value) }) else { throw ConvertError.writeFailed(url.lastPathComponent) }
+            try data.write(to: url)
         case "epub":
             let body = DocumentModel.xhtmlBody(DocumentModel.blocks(from: attributed))
             try await EPUB.write(title: title, chapters: EPUB.chapters(fromBody: body, fallbackTitle: title),

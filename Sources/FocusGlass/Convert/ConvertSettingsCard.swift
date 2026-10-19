@@ -67,6 +67,9 @@ struct ConvertSettingsCard: View {
                 }
                 .padding(.vertical, 8)
 
+                JobList(service: model.convert)
+                    .padding(.vertical, 4)
+
                 ToolStatus(tools: model.convert.tools, refresh: toolsRefresh) {
                     model.convert.tools.refresh()
                     toolsRefresh += 1
@@ -148,5 +151,73 @@ private struct ToolStatus: View {
             }
         }
         .id(refresh)
+    }
+}
+
+/// Poslední úlohy: průběh, zrušení, zobrazení výsledku ve Finderu.
+private struct JobList: View {
+    let service: ConvertService
+
+    var body: some View {
+        let jobs = Array(service.jobs.prefix(6))
+        if !jobs.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Poslední úlohy")
+                        .font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.6))
+                    Spacer()
+                    if service.jobs.contains(where: { $0.state.isDone }) {
+                        Button("Vyčistit", action: service.clearFinished)
+                            .buttonStyle(.plain).font(.system(size: 10.5)).foregroundStyle(.white.opacity(0.5))
+                    }
+                }
+                ForEach(jobs) { job in
+                    HStack(spacing: 8) {
+                        icon(job.state)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(job.title).font(.system(size: 11.5, weight: .medium))
+                            Text(detail(job)).font(.system(size: 10)).foregroundStyle(.white.opacity(0.45)).lineLimit(1).truncationMode(.middle)
+                        }
+                        Spacer(minLength: 4)
+                        action(job)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func icon(_ state: JobSnapshot.State) -> some View {
+        switch state {
+        case .queued: Image(systemName: "clock").foregroundStyle(.white.opacity(0.5))
+        case .running(let progress): ProgressRing(progress: progress, lineWidth: 2).frame(width: 13, height: 13)
+        case .finished: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green.opacity(0.8))
+        case .failed: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+        case .cancelled: Image(systemName: "xmark.circle").foregroundStyle(.white.opacity(0.4))
+        }
+    }
+
+    private func detail(_ job: JobSnapshot) -> String {
+        switch job.state {
+        case .queued: "\(job.subtitle) · čeká"
+        case .running(let progress): "\(job.subtitle) · \(Int(progress * 100)) %"
+        case .finished(let urls): urls.first.map { $0.lastPathComponent } ?? job.subtitle
+        case .failed(let message, _): message
+        case .cancelled: "\(job.subtitle) · zrušeno"
+        }
+    }
+
+    @ViewBuilder
+    private func action(_ job: JobSnapshot) -> some View {
+        switch job.state {
+        case .queued, .running:
+            Button { service.cancel(job.id) } label: { Image(systemName: "xmark") }
+                .buttonStyle(GlassIconButtonStyle(size: 18)).help("Zrušit")
+        case .finished(let urls):
+            Button { NSWorkspace.shared.activateFileViewerSelecting(urls) } label: { Image(systemName: "magnifyingglass") }
+                .buttonStyle(GlassIconButtonStyle(size: 18)).help("Zobrazit ve Finderu")
+        default:
+            EmptyView()
+        }
     }
 }

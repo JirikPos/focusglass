@@ -46,6 +46,28 @@ Klikni na něj, nebo stiskni **⌃⌥ mezerník**.
 
 ![Notch s hudbou](docs/images/notch-hudba.jpg)
 
+### Kolo souborů
+Začni táhnout soubor (z Finderu, z Plochy, z odkladiště) a **ťukni na klávesu** – u kurzoru se otevře kolo.
+Soubor pustíš na lístek; kolo zůstane otevřené, dokud ho nepustíš. Na střed nebo Esc = zrušit.
+
+| Klávesa | Kolo | Co nabízí |
+|---|---|---|
+| ⇧ | **Převést** | obrázky, video, zvuk, PDF, dokumenty, tabulky, titulky, archivy, e-knihy |
+| ⌘ | **Nástroje** | komprese, ořez, střih, krytí, OCR, metadata a další podle druhu souboru |
+| ⌃ | **Akce** | AirDrop, Float, Kopírovat, Přesunout, Cesta, Terminál |
+
+Výsledek se uloží vedle originálu („foto (PNG).png“, nikdy nepřepíše nic existujícího) a objeví se v odkladišti.
+Klávesy změníš v nastavení. **⌃⌥K** otevře kolo pro soubory vybrané ve Finderu (šipky, Enter, Tab přepíná kola).
+Podrž **⌥** při výběru nástroje a spustí se hned s výchozími hodnotami.
+
+Co umí nástroje: obrázky (komprese na cílovou velikost, metadata a poloha, úpravy, anotace, pozadí, ořez, krytí
+obličejů a citlivého textu, vystřižení, PDF a koláž z více obrázků), PDF (komprese, stránky, rozdělení, sloučení,
+heslo, vodoznak, krytí textu, obrázky, OCR), video a zvuk (komprese, střih, ořez, rychlost, normalizace hlasitosti…),
+titulky, tabulky, dokumenty a e-knihy. Úplný přehled a architektura: [docs/CONVERT.md](docs/CONVERT.md).
+
+Většina běží jen na tom, co je v macOS. Pro MKV, WebM, MP3, OGG a všechny nástroje videa a zvuku potřebuješ
+`brew install ffmpeg`; WebP a AVIF `brew install webp libavif`. Co chybí, je v kole šedé a řekne ti, co doinstalovat.
+
 ### Hlídač rozptýlení
 Během focusu tě notch upozorní, když otevřeš zakázaný web nebo aplikaci (Instagram, TikTok, Steam…).
 Seznamy si upravíš v nastavení.

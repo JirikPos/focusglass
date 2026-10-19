@@ -1,0 +1,18 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    # Testy používají swift-testing (Xcode 16+) a macOS API, proto macOS 15.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Nástroje pro video, zvuk a obrázky (testy bez nich se přeskočí)
+        run: brew install ffmpeg webp libavif
+      - name: Sestavení
+        run: swift build
+      - name: Testy
+        run: swift test

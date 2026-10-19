@@ -20,6 +20,8 @@ final class ToolSheetModel {
     private(set) var caption: String?
     private(set) var isWorking = false
     private(set) var failure: String?
+    /// Zdroj se načetl (obrázek se nemusel povést – třeba u dokumentů žádný náhled není).
+    private(set) var sourceLoaded = false
 
     // MARK: Editory
 
@@ -77,6 +79,7 @@ final class ToolSheetModel {
             state.onChange = { [weak self] in self?.schedulePreview() }
         }
         if tool.editor == .pages {
+            sourceLoaded = true
             pdfDocument = PDFDocument(url: selection.urls[0])
             pageSpecs = (0..<(pdfDocument?.pageCount ?? 0)).map { PDFPages.PageSpec(source: $0) }
         } else {
@@ -194,6 +197,7 @@ final class ToolSheetModel {
             let image = await Self.loadPreview(url)
             guard !Task.isCancelled, let self else { return }
             self.original = image
+            self.sourceLoaded = true
             if self.tool.editor == .redact { self.detectRegions() }
             self.schedulePreview(after: 0)
         }

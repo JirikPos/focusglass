@@ -3,7 +3,7 @@ import Foundation
 /// Nástroje kola ⌘ podle druhu souboru. Pořadí = pořadí lístků.
 public enum ToolCatalog {
     public static func all() -> [any FileOperation] {
-        images() + pdfs() + videos() + audio()
+        images() + pdfs() + videos() + audio() + subtitles() + archives() + documents()
     }
 
     static func videos() -> [Tool] {
@@ -20,6 +20,25 @@ public enum ToolCatalog {
             VideoGIF.tool,
             VideoMerge.tool,
         ]
+    }
+
+    static func subtitles() -> [Tool] {
+        [SubtitleTools.shift, SubtitleTools.retime, SubtitleTools.merge, SubtitleTools.burn]
+    }
+
+    static func documents() -> [Tool] {
+        [
+            DocumentTools.replaceTool,
+            DocumentTools.statsTool,
+            DocumentTools.mergeTool,
+            SheetTools.cleanTool,
+            SheetTools.mergeTool,
+            EPUBMeta.tool,
+        ]
+    }
+
+    static func archives() -> [Tool] {
+        [ArchiveTools.extractTool, ArchiveTools.listTool]
     }
 
     static func audio() -> [Tool] {

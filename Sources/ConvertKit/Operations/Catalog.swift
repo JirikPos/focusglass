@@ -118,7 +118,7 @@ public enum Catalog {
         let pagesDirect = IWorkBackend.converter(.pages)
         let pagesViaDocx = chain(pagesDirect, via: .docx, then: TextBackend.convert)
         let officeViaDocx = chain(LibreOfficeBackend.convert, via: .docx, then: TextBackend.convert)
-        for format in [Format.docx, .md, .txt, .epub, .html, .rtf] {
+        for format in [Format.docx, .md, .txt, .epub, .html, .rtf, .pdf] {
             let direct = IWorkBackend.exportFormat(app: .pages, target: format) != nil
             let usesOfficeDirectly = LibreOfficeBackend.filter(for: format) != nil
             list.append(ConvertOperation("document", to: format, routes: [

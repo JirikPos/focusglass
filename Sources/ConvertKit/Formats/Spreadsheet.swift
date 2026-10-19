@@ -194,20 +194,25 @@ public enum Spreadsheet {
         return Markdown.escape(filtered)
     }
 
+    /// CSV, TSV nebo XLSX → listy.
+    public static func load(_ url: URL) async throws -> [Sheet] {
+        let sheets: [Sheet]
+        switch url.pathExtension.lowercased() {
+        case "xlsx":
+            sheets = try await readXLSX(url)
+        case "tsv":
+            sheets = [Sheet(name: "List1", rows: parseDelimited(try TextBackend.readText(url), separator: "\t"))]
+        default:
+            sheets = [Sheet(name: "List1", rows: parseDelimited(try TextBackend.readText(url)))]
+        }
+        guard !sheets.isEmpty else { throw ConvertError.unreadable(url.lastPathComponent) }
+        return sheets
+    }
+
     // MARK: Převodník
 
     public static let convert: Converter = { job in
-        let ext = job.source.pathExtension.lowercased()
-        let sheets: [Sheet]
-        switch ext {
-        case "xlsx":
-            sheets = try await readXLSX(job.source)
-        case "tsv":
-            sheets = [Sheet(name: "List1", rows: parseDelimited(try TextBackend.readText(job.source), separator: "\t"))]
-        default:
-            sheets = [Sheet(name: "List1", rows: parseDelimited(try TextBackend.readText(job.source)))]
-        }
-        guard !sheets.isEmpty else { throw ConvertError.unreadable(job.source.lastPathComponent) }
+        let sheets = try await load(job.source)
         job.progress(0.5)
 
         if job.target == .xlsx {
