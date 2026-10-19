@@ -50,6 +50,8 @@ Klikni na něj, nebo stiskni **⌃⌥ mezerník**.
 Začni táhnout soubor (z Finderu, z Plochy, z odkladiště) a **ťukni na klávesu** – u kurzoru se otevře kolo.
 Soubor pustíš na lístek; kolo zůstane otevřené, dokud ho nepustíš. Na střed nebo Esc = zrušit.
 
+![Kolo souborů při tažení obrázku z Finderu](docs/images/converter.png)
+
 | Klávesa | Kolo | Co nabízí |
 |---|---|---|
 | ⇧ | **Převést** | obrázky, video, zvuk, PDF, dokumenty, tabulky, titulky, archivy, e-knihy |
