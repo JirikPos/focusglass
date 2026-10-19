@@ -3,7 +3,34 @@ import Foundation
 /// Nástroje kola ⌘ podle druhu souboru. Pořadí = pořadí lístků.
 public enum ToolCatalog {
     public static func all() -> [any FileOperation] {
-        images() + pdfs()
+        images() + pdfs() + videos() + audio()
+    }
+
+    static func videos() -> [Tool] {
+        [
+            VideoCompress.tool,
+            VideoTrim.tool,
+            VideoCrop.tool,
+            VideoResize.tool,
+            VideoRotate.tool,
+            VideoSpeed.tool,
+            VideoFrames.tool,
+            VideoExtractAudio.tool,
+            VideoMute.tool,
+            VideoGIF.tool,
+            VideoMerge.tool,
+        ]
+    }
+
+    static func audio() -> [Tool] {
+        [
+            AudioTrim.tool,
+            AudioCompress.tool,
+            AudioNormalize.tool,
+            AudioGain.tool,
+            AudioSplit.tool,
+            AudioMerge.tool,
+        ]
     }
 
     static func pdfs() -> [Tool] {

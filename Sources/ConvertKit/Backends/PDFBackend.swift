@@ -38,6 +38,11 @@ public enum PDFBackend {
         return folder
     }
 
+    /// První stránka jako obrázek s delší stranou `maxPixel` (náhledy).
+    public static func firstPageImage(_ url: URL, maxPixel: Int) throws -> CGImage {
+        try PDFTools.firstPage(url, maxPixel: maxPixel)
+    }
+
     /// Vykreslí stránku na bílé pozadí v daném rozlišení.
     public static func render(_ page: PDFPage, dpi: CGFloat = renderDPI) throws -> CGImage {
         let bounds = page.bounds(for: .cropBox)

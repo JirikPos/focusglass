@@ -48,16 +48,22 @@ private struct OptionRow: View {
                         model.set(option.id, option.defaultValue)
                     }
             case .choice(let choices):
-                HStack {
+                let picker = Picker("", selection: Binding(get: { model.string(option.id) }, set: { model.set(option.id, .string($0)) })) {
+                    ForEach(choices) { Text($0.title).tag($0.id) }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .controlSize(.small)
+                // Dlouhé názvy možností by vytlačily popisek – pak je výběr pod ním přes celou šířku.
+                if (choices.map(\.title.count).max() ?? 0) + option.title.count > 34 {
                     Text(option.title)
-                    Spacer()
-                    Picker("", selection: Binding(get: { model.string(option.id) }, set: { model.set(option.id, .string($0)) })) {
-                        ForEach(choices) { Text($0.title).tag($0.id) }
+                    picker.frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    HStack {
+                        Text(option.title)
+                        Spacer()
+                        picker.fixedSize()
                     }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .controlSize(.small)
-                    .fixedSize()
                 }
             case .text(let placeholder):
                 Text(option.title)

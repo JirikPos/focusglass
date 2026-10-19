@@ -44,10 +44,17 @@ public enum FFmpegBackend {
     /// Spustí ffmpeg s průběhem podle délky vstupu (ffprobe) a výstupem `-progress`.
     public static func transcode(_ input: URL, to output: URL, arguments: [String], inputArguments: [String] = [],
                                  extraInputs: [URL] = [], job: ConversionJob, duration: Double? = nil) async throws {
-        let ffmpeg = try job.tools.require(.ffmpeg)
+        try await transcode(input, to: output, arguments: arguments, inputArguments: inputArguments, extraInputs: extraInputs,
+                            tools: job.tools, progress: job.progress, duration: duration)
+    }
+
+    /// Totéž bez `ConversionJob` (nástroje). `duration` je délka **výstupu** pro výpočet průběhu.
+    public static func transcode(_ input: URL, to output: URL, arguments: [String], inputArguments: [String] = [],
+                                 extraInputs: [URL] = [], tools: ToolLocator, progress: @escaping @Sendable (Double) -> Void,
+                                 duration: Double? = nil) async throws {
+        let ffmpeg = try tools.require(.ffmpeg)
         let total: Double?
-        if let duration { total = duration } else { total = await probeDuration(input, tools: job.tools) }
-        let progress = job.progress
+        if let duration { total = duration } else { total = await probeDuration(input, tools: tools) }
         var args = ["-hide_banner", "-nostdin", "-y", "-loglevel", "error"] + inputArguments + ["-i", input.path]
         for extra in extraInputs { args += ["-i", extra.path] }
         args += arguments + ["-progress", "pipe:1", "-nostats", output.path]

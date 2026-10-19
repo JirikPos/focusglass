@@ -140,7 +140,7 @@ enum EachImage {
     static func run(
         _ context: OperationContext, tag: String,
         outputExtension: @Sendable (URL) -> String,
-        _ work: @Sendable (_ source: URL, _ output: URL, _ progress: @Sendable (Double) -> Void) async throws -> Void
+        _ work: @Sendable (_ source: URL, _ output: URL, _ progress: @escaping @Sendable (Double) -> Void) async throws -> Void
     ) async throws -> [URL] {
         let urls = context.selection.urls
         var results: [URL] = []

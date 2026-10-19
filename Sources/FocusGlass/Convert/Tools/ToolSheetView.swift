@@ -34,7 +34,7 @@ struct ToolSheetView: View {
         case .crop: CropEditor(model: model)
         case .annotate: AnnotateEditor(model: model)
         case .pages: PagesEditor(model: model)
-        case .trim: previewPane
+        case .trim: TrimEditor(model: model)
         case .redact: RedactEditor(model: model)
         case .form, .order: previewPane
         }
@@ -96,6 +96,7 @@ struct ToolSheetView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     if model.tool.editor == .order { OrderList(model: model) }
+                    if model.tool.editor == .trim { TrimFields(model: model) }
                     if model.tool.editor == .redact { RedactRegionList(model: model) }
                     if model.tool.editor == .annotate { AnnotateOptions(model: model) }
                     OptionsForm(model: model)

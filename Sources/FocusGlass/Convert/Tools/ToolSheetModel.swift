@@ -47,6 +47,9 @@ final class ToolSheetModel {
     var showRedactResult = false { didSet { schedulePreview() } }
     var order: [URL]
 
+    // Střih (video, zvuk)
+    private(set) var trim: TrimState?
+
     // Stránky PDF
     var pageSpecs: [PDFPages.PageSpec] = []
     var selectedPages: Set<UUID> = []
@@ -67,6 +70,12 @@ final class ToolSheetModel {
         self.selection = selection
         self.values = tool.defaults
         self.order = selection.urls
+        if tool.editor == .trim {
+            let isVideo = selection.kinds.first == .video
+            let state = TrimState(url: selection.urls[0], isVideo: isVideo)
+            trim = state
+            state.onChange = { [weak self] in self?.schedulePreview() }
+        }
         if tool.editor == .pages {
             pdfDocument = PDFDocument(url: selection.urls[0])
             pageSpecs = (0..<(pdfDocument?.pageCount ?? 0)).map { PDFPages.PageSpec(source: $0) }
@@ -140,7 +149,11 @@ final class ToolSheetModel {
         case .pages:
             if let data = try? encoder.encode(pageSpecs) { result["pages"] = .data(data) }
         case .trim:
-            break
+            if let trim {
+                result["start"] = .double(trim.start)
+                // 0 = do konce.
+                result["end"] = .double(trim.end >= trim.duration - 0.01 ? 0 : trim.end)
+            }
         case .form:
             break
         }
@@ -178,13 +191,21 @@ final class ToolSheetModel {
         loadTask?.cancel()
         let url = source
         loadTask = Task { [weak self] in
-            let image = await Task.detached(priority: .userInitiated) {
-                try? ImageBackend.previewImage(at: url, maxPixel: Self.previewPixels)
-            }.value
+            let image = await Self.loadPreview(url)
             guard !Task.isCancelled, let self else { return }
             self.original = image
             if self.tool.editor == .redact { self.detectRegions() }
             self.schedulePreview(after: 0)
+        }
+    }
+
+    /// Obrázek pro náhled podle druhu souboru: fotka, snímek z videa, vlna zvuku, první stránka PDF.
+    nonisolated private static func loadPreview(_ url: URL) async -> CGImage? {
+        switch FileKind.of(url) {
+        case .video: return try? await MediaFrames.frame(of: url, fraction: 0.1, maxPixel: previewPixels)
+        case .audio: return try? await Waveform.image(of: url, width: 1400, height: 360)
+        case .pdf: return try? PDFBackend.firstPageImage(url, maxPixel: previewPixels)
+        default: return try? ImageBackend.previewImage(at: url, maxPixel: previewPixels)
         }
     }
 
