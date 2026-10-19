@@ -7,6 +7,7 @@ public enum Catalog {
     public static func makeRegistry() -> OperationRegistry {
         var registry = OperationRegistry()
         registry.register(conversions())
+        registry.register(ToolCatalog.all())
         return registry
     }
 

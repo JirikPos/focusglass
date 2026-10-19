@@ -74,6 +74,9 @@ public enum OptionValue: Sendable, Hashable {
     case double(Double)
     case string(String)
     case url(URL)
+    case color(RGBA)
+    /// Složitější data z editorů (anotace, oblasti ke krytí, ořez) jako JSON.
+    case data(Data)
 }
 
 public struct OperationContext: Sendable {
@@ -127,6 +130,17 @@ public struct OperationContext: Sendable {
     public func url(_ key: String) -> URL? {
         if case .url(let value) = options[key] { return value }
         return nil
+    }
+
+    public func color(_ key: String) -> RGBA? {
+        if case .color(let value) = options[key] { return value }
+        return nil
+    }
+
+    /// JSON z editoru; `nil`, když chybí nebo nejde přečíst.
+    public func decoded<T: Decodable>(_ type: T.Type, _ key: String) -> T? {
+        guard case .data(let data) = options[key] else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
     }
 }
 
