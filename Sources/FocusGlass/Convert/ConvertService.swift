@@ -17,6 +17,7 @@ final class ConvertService {
     @ObservationIgnored let tools = ToolLocator.shared
     @ObservationIgnored let queue = JobQueue()
     @ObservationIgnored let actions = FileActionPerformer()
+    @ObservationIgnored let toolWindows = ToolWindows()
     /// Hotové soubory (do odkladiště).
     @ObservationIgnored var onFinished: (([URL]) -> Void)?
     /// Souhrnný průběh běžících úloh (0…1, počet); `nil` = nic neběží.
@@ -45,6 +46,9 @@ final class ConvertService {
             }
         }
 
+        toolWindows.onApply = { [weak self] tool, selection, options in
+            self?.submit(tool, selection: selection, options: options)
+        }
         wheel.onPick = { [weak self] item, selection in self?.run(item, on: selection) }
         wheel.onSwitch = { [weak self] target in self?.switchWheel(to: target) }
         wheel.wheelForFlags = { [weak self] flags in self?.wheel(for: flags) }
@@ -106,33 +110,6 @@ final class ConvertService {
         wheel.model.keys = keyLegend
     }
 
-    /// Vývoj: `--render-wheel <výstup.png> [kolo] [soubor] [zvýraznit]` vykreslí kolo do PNG a skončí
-    /// (kontrola vzhledu bez oprávnění k nahrávání obrazovky).
-    func renderWheel(arguments: [String]) {
-        let index = arguments.firstIndex(of: "--render-wheel") ?? 0
-        let rest = Array(arguments.dropFirst(index + 1))
-        guard let output = rest.first else { return }
-        FileHandle.standardError.write(Data("render-wheel → \(output)\n".utf8))
-        let target = rest.dropFirst().first.flatMap(Wheel.init(rawValue:)) ?? .actions
-        let path = rest.dropFirst(2).first ?? "/tmp/Ukázka.png"
-        let selection = Selection(urls: [URL(fileURLWithPath: path)])
-        let model = WheelModel()
-        model.show(target, selection: selection, items: items(for: selection, wheel: target))
-        model.keys = keyLegend
-        model.hovered = rest.dropFirst(3).first.flatMap(Int.init)
-        let renderer = ImageRenderer(content: WheelView(model: model, animated: false).background(Color(white: 0.5)))
-        renderer.scale = 2
-        if let image = renderer.nsImage, let tiff = image.tiffRepresentation,
-           let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
-            do { try png.write(to: URL(fileURLWithPath: output)) } catch {
-                FileHandle.standardError.write(Data("render-wheel: \(error)\n".utf8))
-            }
-        } else {
-            FileHandle.standardError.write(Data("render-wheel: renderer vrátil nil\n".utf8))
-        }
-        NSApp.terminate(nil)
-    }
-
     private func modifiersPressed(_ flags: NSEvent.ModifierFlags) {
         guard let selection = watcher.selection, let target = wheel(for: flags) else { return }
         let items = items(for: selection, wheel: target)
@@ -180,6 +157,13 @@ final class ConvertService {
             actions.perform(action, on: selection)
         case .operation(let id):
             guard let operation = registry.operation(id: id) else { return }
+            if let tool = operation as? Tool, tool.needsDialog {
+                // ⌥ při výběru = rychle s výchozími hodnotami (jen nástroje, které nepotřebují editor).
+                let quick = NSEvent.modifierFlags.contains(.option) && tool.editor == .form && !tool.needsMultiple
+                    && Wheel.allCases.allSatisfy { settings.key(for: $0) != .option }
+                if quick { submit(tool, selection: selection) } else { toolWindows.present(tool, selection: selection) }
+                return
+            }
             submit(operation, selection: selection)
         case .more:
             break

@@ -123,7 +123,6 @@ final class AppModel {
             if CommandLine.arguments.contains("--battery") { self.notch.showBattery(percent: 76, charging: true) }
             if CommandLine.arguments.contains("--peek") { self.notch.peekShelf() }
             // Vývoj: `--wheel tools ~/foto.png` ukáže kolo souborů.
-            if CommandLine.arguments.contains("--render-wheel") { self.convert.renderWheel(arguments: CommandLine.arguments) }
             if CommandLine.arguments.contains("--wheel") { self.convert.previewWheel(arguments: CommandLine.arguments) }
             // Vývoj: `--review` rovnou ukáže vynucené review.
             if CommandLine.arguments.contains("--review") {

@@ -1,6 +1,15 @@
 import SwiftUI
 
+/// Vstupní bod. Vývojové režimy `--render-*` se vyřídí dřív, než vznikne `AppModel`
+/// (ten čte Klíčenku a spouští sledování), takže nic nevyskakuje a nic nezůstane běžet.
 @main
+enum FocusGlassMain {
+    static func main() {
+        if DevRender.handle(CommandLine.arguments) { return }
+        FocusGlassApp.main()
+    }
+}
+
 struct FocusGlassApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = AppModel()

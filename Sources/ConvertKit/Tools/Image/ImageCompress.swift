@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import ImageIO
 
 /// Komprese obrázků: cílová velikost, snížení o procenta, nebo předvolba. Volitelně i zmenšení rozměrů.
 public enum ImageCompress {
@@ -168,7 +169,15 @@ public enum ImageCompress {
         preview: { request in
             let context = OperationContext(selection: request.selection, options: request.options)
             let result = try compress(request.source, settings: settings(from: context))
-            let image = try ImageBackend.previewImage(at: request.source, maxPixel: request.maxPixel)
+            // Ukazuje skutečný výsledek (po kompresi), ať je vidět dopad na kvalitu.
+            guard let source = CGImageSourceCreateWithData(result.data as CFData, nil),
+                  let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                      kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
+                      kCGImageSourceThumbnailMaxPixelSize: request.maxPixel,
+                  ] as CFDictionary) else {
+                return PreviewResult(image: try ImageBackend.previewImage(at: request.source, maxPixel: request.maxPixel),
+                                     caption: caption(result))
+            }
             return PreviewResult(image: image, caption: caption(result))
         },
         run: { context in
