@@ -15,7 +15,6 @@ struct FocusNotchView: View {
                     .foregroundStyle(.white.opacity(0.8))
             }
             .frame(width: 34, height: 34)
-            .animation(.linear(duration: 0.9), value: timer.progress)
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(timer.remaining.clock)
